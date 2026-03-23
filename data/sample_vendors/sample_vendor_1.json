@@ -1,0 +1,20 @@
+{
+  "vendor_id": "sample-001",
+  "vendor_name": "MedEquip Solutions Pvt Ltd",
+  "industry": "MedTech",
+  "contact_email": "compliance@medequip.in",
+  "cin": "U33112MH2020PTC345678",
+  "gst_number": "27AABCM1234F1Z5",
+  "cdsco_licence": "MD-2021-MH-004567",
+  "pan": "AABCM1234F",
+  "registered_address": "Plot 42, MIDC Industrial Area, Andheri East, Mumbai 400093",
+  "directors": [
+    {"name": "Rajesh Kumar Sharma", "din": "08765432"},
+    {"name": "Priya Mehta", "din": "09876543"}
+  ],
+  "products": ["Surgical Gloves - Sterile", "Examination Gloves - Non-Sterile"],
+  "annual_revenue_inr": "8,50,00,000",
+  "employee_count": 120,
+  "certifications": ["ISO 13485:2016", "ISO 9001:2015", "CE Mark"],
+  "notes": "Active MedTech supplier — all documents should pass verification"
+}

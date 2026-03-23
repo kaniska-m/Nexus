@@ -1,0 +1,22 @@
+{
+  "industry": "MedTech",
+  "description": "Medical Technology — devices, equipment, surgical supplies",
+  "regulatory_bodies": ["CDSCO", "MCA21", "GSTN", "BIS"],
+  "required_categories": ["Legal", "Financial", "Regulatory", "Quality", "Operational"],
+  "sample_checklist": [
+    {"category": "Legal", "document_name": "Certificate of Incorporation", "required": true},
+    {"category": "Legal", "document_name": "Board Resolution / Authorization Letter", "required": true},
+    {"category": "Financial", "document_name": "GST Registration Certificate", "required": true},
+    {"category": "Financial", "document_name": "PAN Card (Company)", "required": true},
+    {"category": "Financial", "document_name": "Last 2 Years Audited Financials", "required": true},
+    {"category": "Financial", "document_name": "Bank Account Verification Letter", "required": true},
+    {"category": "Regulatory", "document_name": "CDSCO Manufacturing Licence", "required": true},
+    {"category": "Regulatory", "document_name": "Drug Licence Form 20/21", "required": true},
+    {"category": "Regulatory", "document_name": "CE/FDA Registration (if exporting)", "required": false},
+    {"category": "Quality", "document_name": "ISO 13485 Certificate", "required": true},
+    {"category": "Quality", "document_name": "ISO 9001:2015 Certificate", "required": true},
+    {"category": "Quality", "document_name": "GMP Compliance Certificate", "required": true},
+    {"category": "Operational", "document_name": "Factory Inspection Report", "required": true},
+    {"category": "Operational", "document_name": "Product Liability Insurance", "required": false}
+  ]
+}
