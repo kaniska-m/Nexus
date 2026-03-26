@@ -44,7 +44,8 @@ export default {
       fontFamily: {
         syne: ['Syne', 'sans-serif'],
         dm: ['DM Sans', 'sans-serif'],
-        mono: ['DM Mono', 'monospace'],
+        inter: ['Inter', 'sans-serif'],
+        mono: ['JetBrains Mono', 'DM Mono', 'monospace'],
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out',

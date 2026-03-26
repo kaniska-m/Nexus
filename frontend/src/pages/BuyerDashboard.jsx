@@ -3,24 +3,44 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   LayoutDashboard, Users, Plus, Loader2, ChevronRight,
-  Building2, FileCheck, AlertTriangle, TrendingUp, Zap, Search, Clock, Bot, X, ShieldCheck
+  Building2, FileCheck, AlertTriangle, TrendingUp, Zap, Search, Clock, Bot, X, ShieldCheck,
+  Copy, CheckCircle, BarChart3
 } from 'lucide-react';
 import { onboardVendor, runPipeline, getVendorStatus, listVendors } from '../api/nexusApi';
 import TimeSavedCounter from '../components/TimeSavedCounter';
 import AgentActivityFeed from '../components/AgentActivityFeed';
 import VendorRequestCard from '../components/VendorRequestCard';
+import VendorDetailDrawer from '../components/VendorDetailDrawer';
 import VendorHealthPage from './VendorHealthPage';
 import AuditLogsPage from './AuditLogsPage';
 
-const INDUSTRIES = ['MedTech', 'FinTech', 'GovTech', 'SaaS', 'E-commerce', 'Logistics'];
+const INDUSTRIES = ['MedTech', 'FinTech', 'GovTech', 'SaaS', 'E-commerce', 'Logistics', 'IT', 'Pharma'];
+
+function StatCard({ icon: Icon, label, value, color = 'blue', suffix = '' }) {
+  return (
+    <div className="nexus-card p-4 flex items-center gap-4 group nexus-card-hover">
+      <div className={`w-11 h-11 rounded-xl bg-${color}-50 text-${color}-600 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs text-slate-500 font-medium truncate">{label}</p>
+        <p className="text-xl font-bold text-[#0f1f3d] font-syne tabular-nums animate-count">
+          {value}{suffix}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 function OnboardingTab() {
   const [vendors, setVendors] = useState([]);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [showOnboard, setShowOnboard] = useState(false);
+  const [drawerVendor, setDrawerVendor] = useState(null);
   const [loading, setLoading] = useState(false);
   const [pipelineLoading, setPipelineLoading] = useState(false);
   const [onboardStep, setOnboardStep] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
   const [form, setForm] = useState({ vendor_name: '', industry: 'MedTech', contact_email: '', urgency: 'normal' });
   const location = useLocation();
 
@@ -33,14 +53,12 @@ function OnboardingTab() {
 
   const handleOnboard = useCallback(async (e) => {
     e.preventDefault();
-    console.log("Starting Onboarding with form:", form);
     setLoading(true);
     try {
       const res = await onboardVendor(form);
-      console.log("Onboarding Response:", res);
       const vendorData = res?.data || res;
       if (!vendorData || !vendorData.vendor_id) {
-          throw new Error("Invalid vendor data returned from backend");
+        throw new Error("Invalid vendor data returned from backend");
       }
       setSelectedVendor(vendorData);
       setVendors(prev => (Array.isArray(prev) ? [...prev, vendorData] : [vendorData]));
@@ -49,7 +67,6 @@ function OnboardingTab() {
       setForm({ vendor_name: '', industry: 'MedTech', contact_email: '', urgency: 'normal' });
       toast.success("Vendor onboarding initiated!");
     } catch (err) {
-      console.error("Onboarding Error:", err);
       toast.error('Onboarding failed: ' + err.message);
     } finally {
       setLoading(false);
@@ -76,10 +93,10 @@ function OnboardingTab() {
         const data = res.data || res;
         setSelectedVendor(data);
         setVendors(prev => prev.map(v => v.vendor_id === data.vendor_id ? data : v));
-        if (data.workflow_status === 'completed' || data.workflow_status === 'failed') {
+        if (data.workflow_status === 'completed' || data.workflow_status === 'complete' || data.workflow_status === 'failed') {
           setPipelineLoading(false);
-        } else if (data.workflow_status === 'processing' || data.workflow_status === 'halted') {
-          setPipelineLoading(true);
+        } else if (data.workflow_status === 'processing' || data.workflow_status === 'halted' || data.workflow_status === 'active') {
+          // keep polling
         }
       } catch (e) {
         console.error("Poller Error:", e);
@@ -92,10 +109,9 @@ function OnboardingTab() {
   useEffect(() => {
     async function init() {
       try {
-        console.log("Fetching vendors list...");
         const res = await listVendors();
-        console.log("List Vendors Response:", res);
         const data = res?.data || res;
+        // Handle both {vendors: [...]} and flat array
         const vendorList = Array.isArray(data) ? data : (data?.vendors || []);
         setVendors(vendorList);
         if (vendorList.length > 0 && !selectedVendor) setSelectedVendor(vendorList[0]);
@@ -106,56 +122,103 @@ function OnboardingTab() {
     init();
   }, []);
 
+  // Filter vendors based on search term
+  const filteredVendors = Array.isArray(vendors) 
+    ? vendors.filter(v => {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        return (
+          (v.vendor_name || '').toLowerCase().includes(term) ||
+          (v.industry || '').toLowerCase().includes(term) ||
+          (v.workflow_status || '').toLowerCase().includes(term) ||
+          (v.vendor_id || '').toLowerCase().includes(term)
+        );
+      })
+    : [];
+
+  // Stats
+  const totalVendors = Array.isArray(vendors) ? vendors.length : 0;
+  const activeCount = vendors.filter(v => v.workflow_status === 'active' || v.workflow_status === 'processing').length;
+  const completedCount = vendors.filter(v => v.workflow_status === 'complete' || v.workflow_status === 'completed').length;
+  const flaggedCount = vendors.filter(v => v.workflow_status === 'escalated' || v.workflow_status === 'halted' || (v.fraud_flags && v.fraud_flags.length > 0)).length;
+
+  const handleCopyLink = (vendorId) => {
+    const url = `${window.location.origin}/supplier/${vendorId}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Supplier portal link copied!');
+  };
+
   return (
-    <div className="min-h-screen bg-[#f1f5f9] flex flex-col">
+    <div className="min-h-screen bg-slate-50 page-enter">
       <main className="max-w-[1400px] w-full mx-auto px-6 py-6 flex-1 flex flex-col">
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <StatCard icon={Building2} label="Total Vendors" value={totalVendors} color="blue" />
+          <StatCard icon={Loader2} label="Active Pipelines" value={activeCount} color="teal" />
+          <StatCard icon={CheckCircle} label="Completed" value={completedCount} color="emerald" />
+          <StatCard icon={AlertTriangle} label="Flagged / Escalated" value={flaggedCount} color="red" />
+        </div>
+
         <div className="flex gap-6 flex-1 min-h-0">
-          <div className="w-[60%] flex flex-col bg-white rounded-xl shadow-[0_2px_12px_rgba(15,31,61,0.08)] border border-slate-200 overflow-hidden">
-            <div className="p-5 border-b border-slate-100">
-              <div className="relative">
-                <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          {/* Vendor List Panel */}
+          <div className="w-[55%] flex flex-col nexus-card overflow-hidden">
+            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input 
                   type="text" 
-                  placeholder="Search vendors..." 
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all"
+                  placeholder="Search vendors by name, industry, or status..." 
+                  className="nexus-input pl-9 pr-4 py-2 text-sm bg-white"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              <span className="text-xs text-slate-400 font-mono whitespace-nowrap">{filteredVendors.length} results</span>
             </div>
-            <div className="flex-1 overflow-y-auto p-5 space-y-3">
-              {!Array.isArray(vendors) || vendors.length === 0 ? (
-                 <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                   <Users className="w-12 h-12 mb-3 text-slate-300" />
-                   <p className="text-sm font-medium text-slate-500">No vendors yet</p>
-                   <p className="text-xs mt-1">Click "New Vendor Request" to start.</p>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {filteredVendors.length === 0 ? (
+                 <div className="flex flex-col items-center justify-center h-full text-slate-400 py-16">
+                   <Users className="w-12 h-12 mb-3 text-slate-200" />
+                   <p className="text-sm font-medium text-slate-500">{searchTerm ? 'No matching vendors' : 'No vendors yet'}</p>
+                   <p className="text-xs mt-1">{searchTerm ? 'Try a different search term.' : 'Click "New Vendor" to start.'}</p>
                  </div>
               ) : (
-                vendors.map((v, i) => (
+                filteredVendors.map((v, i) => (
                   <VendorRequestCard 
                     key={v.vendor_id || i}
                     vendor={v}
                     isSelected={selectedVendor?.vendor_id === v.vendor_id}
                     onClick={() => setSelectedVendor(v)}
+                    onCopyLink={() => handleCopyLink(v.vendor_id)}
+                    onViewDetails={() => setDrawerVendor(v)}
                   />
                 ))
               )}
             </div>
           </div>
 
-          <div className="w-[40%] flex flex-col gap-6">
+          {/* Agent Activity Panel */}
+          <div className="w-[45%] flex flex-col gap-5">
             {selectedVendor ? (
-              <div className="flex-1 flex flex-col bg-white rounded-xl shadow-[0_2px_12px_rgba(15,31,61,0.08)] border border-slate-200 overflow-hidden relative">
-                <div className="p-5 border-b border-slate-100 bg-slate-50 flex justify-between items-center shrink-0">
-                  <h3 className="font-syne font-bold text-navy flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <div className="flex-1 flex flex-col nexus-card overflow-hidden relative">
+                <div className="p-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-blue-50/30 flex justify-between items-center shrink-0">
+                  <h3 className="font-syne font-bold text-[#0f1f3d] flex items-center gap-3 text-sm">
+                    <span className="status-dot-active" />
                     Agent Activity
-                    <span className="text-xs font-normal text-slate-500 ml-2 font-dm">Agents running</span>
+                    <span className="text-[10px] font-bold text-slate-400 ml-1 font-mono uppercase tracking-wider">
+                      {selectedVendor.vendor_name}
+                    </span>
                   </h3>
                   <button
                     onClick={handleRunPipeline}
                     disabled={pipelineLoading}
-                    className="nexus-btn-primary py-1.5 px-3 text-xs disabled:opacity-50"
+                    className="nexus-btn-teal py-1.5 px-3 text-xs disabled:opacity-50"
                   >
-                    {pipelineLoading ? 'Running...' : 'Run Pipeline'}
+                    {pipelineLoading ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running...</>
+                    ) : (
+                      <><Zap className="w-3.5 h-3.5" /> Run Pipeline</>
+                    )}
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-0">
@@ -163,31 +226,34 @@ function OnboardingTab() {
                 </div>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-xl shadow-[0_2px_12px_rgba(15,31,61,0.08)] border border-slate-200 text-slate-400 p-8 text-center">
+              <div className="flex-1 flex flex-col items-center justify-center nexus-card text-slate-400 p-8 text-center">
                  <Zap className="w-12 h-12 text-slate-200 mb-4" />
                  <p className="font-syne text-lg text-slate-600 font-bold">No Vendor Selected</p>
-                 <p className="text-sm mt-2">Select a vendor from the request list to view real-time agent activity and compliance status.</p>
+                 <p className="text-sm mt-2">Select a vendor from the list to view real-time agent activity.</p>
               </div>
             )}
           </div>
         </div>
+
+        {/* Time Saved Counter */}
         <div className="mt-6">
            <TimeSavedCounter 
-             hours={(Array.isArray(vendors) ? vendors.length : 0) * 4.5} 
+             hours={totalVendors * 4.5} 
              completedSteps={Array.isArray(vendors) ? vendors.reduce((acc, v) => acc + (v.current_step || 0), 0) : 0} 
            />
         </div>
       </main>
 
+      {/* Onboarding Modal */}
       {showOnboard && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/40 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-slide-up">
-            <div className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0f1f3d]/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden animate-slide-up border border-slate-200">
+            <div className="nexus-gradient-subtle border-b border-slate-100 p-6 flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-syne font-bold text-navy">New Vendor Request</h2>
+                <h2 className="text-xl font-syne font-bold text-[#0f1f3d]">New Vendor Request</h2>
                 <p className="text-xs text-slate-500 mt-1 uppercase tracking-wider font-bold">Step {onboardStep} of 2</p>
               </div>
-              <button onClick={() => setShowOnboard(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+              <button onClick={() => { setShowOnboard(false); setOnboardStep(1); }} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
@@ -261,7 +327,7 @@ function OnboardingTab() {
                           onClick={() => setForm(f => ({ ...f, urgency: urg.toLowerCase() }))}
                           className={`p-3 rounded-xl border-2 text-center transition-all ${
                             form.urgency === urg.toLowerCase() 
-                              ? 'border-accent bg-blue-50 text-accent' 
+                              ? 'border-blue-500 bg-blue-50 text-blue-600 shadow-sm' 
                               : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200'
                           }`}
                         >
@@ -276,12 +342,12 @@ function OnboardingTab() {
                   <div className="bg-teal-50 rounded-xl p-4 border border-teal-100 flex gap-3">
                     <Bot className="w-5 h-5 text-teal-600 shrink-0" />
                     <p className="text-xs text-teal-800">
-                      Nexus AI will automatically generate a custom {form.industry} compliance checklist based on this selection.
+                      Nexus AI will automatically generate a custom <strong>{form.industry}</strong> compliance checklist based on your selection.
                     </p>
                   </div>
                   <div className="flex gap-3 pt-2">
-                    <button type="button" onClick={() => setOnboardStep(1)} className="nexus-btn-outline flex-1 justify-center">Previous</button>
-                    <button type="submit" disabled={loading} className="nexus-btn-teal flex-[2] justify-center">
+                    <button type="button" onClick={() => setOnboardStep(1)} className="nexus-btn-outline flex-1">Previous</button>
+                    <button type="submit" disabled={loading} className="nexus-btn-teal flex-[2]">
                       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                       {loading ? 'Initializing Agents…' : 'Start Onboarding'}
                     </button>
@@ -292,6 +358,13 @@ function OnboardingTab() {
           </div>
         </div>
       )}
+
+      {/* Vendor Detail Drawer */}
+      <VendorDetailDrawer
+        isOpen={!!drawerVendor}
+        onClose={() => setDrawerVendor(null)}
+        vendor={drawerVendor}
+      />
     </div>
   );
 }
@@ -300,8 +373,16 @@ export default function BuyerDashboard() {
   return (
     <Routes>
       <Route path="/" element={<OnboardingTab />} />
-      <Route path="health" element={<VendorHealthPage />} />
-      <Route path="audit" element={<AuditLogsPage />} />
+      <Route path="health" element={
+        <div className="max-w-[1400px] mx-auto px-6 py-6 page-enter">
+          <VendorHealthPage />
+        </div>
+      } />
+      <Route path="audit" element={
+        <div className="max-w-[1400px] mx-auto px-6 py-6 page-enter">
+          <AuditLogsPage />
+        </div>
+      } />
     </Routes>
   );
 }

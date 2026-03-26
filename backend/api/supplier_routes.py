@@ -44,10 +44,11 @@ async def get_supplier_form(vendor_id: str):
 async def submit_document(
     vendor_id: str,
     document_name: str = Form(...),
-    file: UploadFile = File(...),
+    document: UploadFile = File(...),
 ):
     """Supplier uploads a compliance document."""
     from backend.utils.state_manager import state_manager
+    from backend.models.vendor import DocumentStatus
     import os
 
     state = await state_manager.get_state(vendor_id)
@@ -59,15 +60,15 @@ async def submit_document(
     vendor_dir = os.path.join(upload_dir, vendor_id[:8])
     os.makedirs(vendor_dir, exist_ok=True)
 
-    file_path = os.path.join(vendor_dir, file.filename)
+    file_path = os.path.join(vendor_dir, document.filename)
     with open(file_path, "wb") as f:
-        content = await file.read()
+        content = await document.read()
         f.write(content)
 
     # Update state with submitted document
     state.documents_submitted[document_name] = {
         "file_path": file_path,
-        "filename": file.filename,
+        "filename": document.filename,
         "submitted_at": datetime.utcnow().isoformat(),
     }
 
@@ -75,18 +76,27 @@ async def submit_document(
     if document_name in state.documents_pending:
         state.documents_pending.remove(document_name)
 
+    # Update checklist item status to submitted
+    for item in state.checklist:
+        item_name = item.document_name if hasattr(item, 'document_name') else item.get('document_name', '')
+        if item_name == document_name:
+            if hasattr(item, 'status'):
+                item.status = DocumentStatus.SUBMITTED
+            elif isinstance(item, dict):
+                item['status'] = DocumentStatus.SUBMITTED.value
+
     await state_manager.append_audit_log(
         vendor_id=vendor_id,
         agent="Supplier Portal",
         action=f"Document submitted: {document_name}",
-        reason=f"Supplier uploaded {file.filename}",
+        reason=f"Supplier uploaded {document.filename}",
     )
 
     return {
         "status": "success",
         "data": {
             "document_name": document_name,
-            "filename": file.filename,
+            "filename": document.filename,
             "submitted_at": datetime.utcnow().isoformat(),
             "pending_remaining": len(state.documents_pending),
         },

@@ -137,6 +137,8 @@ class VendorState(BaseModel):
     This is the single source of truth for a vendor's verification workflow.
     Matches the spec's shared agent state schema exactly.
     """
+    model_config = {"use_enum_values": True}
+
     # Identity
     vendor_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     vendor_name: str = ""

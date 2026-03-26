@@ -1,11 +1,22 @@
-import { useState, useEffect } from 'react';
-import { Search, Download, Filter, Calendar, FileText, Bot } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Search, Download, Filter, Calendar, FileText, Bot, CheckCircle, AlertTriangle, Clock } from 'lucide-react';
 import { listVendors } from '../api/nexusApi';
+
+const AGENT_COLORS = {
+  Orchestrator: 'bg-[#0f1f3d] text-white',
+  Collector: 'bg-blue-600 text-white',
+  Verifier: 'bg-teal-600 text-white',
+  'Risk Scorer': 'bg-amber-500 text-white',
+  'Audit Agent': 'bg-purple-600 text-white',
+  Monitor: 'bg-emerald-600 text-white',
+  'Supplier Portal': 'bg-slate-600 text-white',
+};
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState([]);
-  const [filteredLogs, setFilteredLogs] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [agentFilter, setAgentFilter] = useState('All Agents');
+  const [dateFilter, setDateFilter] = useState('All Time');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -14,8 +25,10 @@ export default function AuditLogsPage() {
       try {
         const res = await listVendors();
         const data = res.data || res;
+        // Handle both {vendors: [...]} and flat array
+        const vendorList = Array.isArray(data) ? data : (data?.vendors || []);
         // Flatten all audit logs from all vendors into one list
-        const allLogs = data.flatMap(v => (v.audit_log || []).map(log => ({
+        const allLogs = vendorList.flatMap(v => (v.audit_log || []).map(log => ({
           ...log,
           vendor_name: v.vendor_name,
           vendor_id: v.vendor_id
@@ -23,7 +36,6 @@ export default function AuditLogsPage() {
         // Sort by timestamp desc
         const sorted = allLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         setLogs(sorted);
-        setFilteredLogs(sorted);
       } catch (err) {
         console.error(err);
       } finally {
@@ -33,32 +45,77 @@ export default function AuditLogsPage() {
     fetchLogs();
   }, []);
 
-  useEffect(() => {
-    const filtered = logs.filter(log => 
-      log.vendor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.agent.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.action.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setFilteredLogs(filtered);
-  }, [searchTerm, logs]);
+  // Apply all filters
+  const filteredLogs = useMemo(() => {
+    let result = logs;
+
+    // Text search
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      result = result.filter(log => 
+        (log.vendor_name || '').toLowerCase().includes(term) ||
+        (log.agent || '').toLowerCase().includes(term) ||
+        (log.action || '').toLowerCase().includes(term)
+      );
+    }
+
+    // Agent filter
+    if (agentFilter !== 'All Agents') {
+      result = result.filter(log => log.agent === agentFilter);
+    }
+
+    // Date filter
+    if (dateFilter !== 'All Time') {
+      const now = new Date();
+      let cutoff;
+      if (dateFilter === 'Last 24 Hours') cutoff = new Date(now - 24 * 60 * 60 * 1000);
+      else if (dateFilter === 'Last 7 Days') cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      else if (dateFilter === 'Last 30 Days') cutoff = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      if (cutoff) {
+        result = result.filter(log => new Date(log.timestamp) >= cutoff);
+      }
+    }
+
+    return result;
+  }, [logs, searchTerm, agentFilter, dateFilter]);
+
+  // Unique agents for dropdown
+  const uniqueAgents = useMemo(() => {
+    const agents = new Set(logs.map(l => l.agent).filter(Boolean));
+    return ['All Agents', ...Array.from(agents)];
+  }, [logs]);
 
   const handleExport = () => {
-    alert('Exporting Audit Log as PDF...');
+    // Create a simple CSV export
+    const csvContent = [
+      'Timestamp,Vendor,Agent,Action,Result',
+      ...filteredLogs.map(log => 
+        `"${log.timestamp}","${log.vendor_name}","${log.agent}","${log.action}","${log.reason || 'Verified'}"`
+      )
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nexus-audit-trail-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   return (
     <div className="flex flex-col h-full w-full animate-fade-in">
       <div className="flex justify-between items-end mb-6">
         <div>
-          <h2 className="text-2xl font-syne font-bold text-navy">Chain-of-Custody Audit Trail</h2>
+          <h2 className="text-2xl font-syne font-bold text-[#0f1f3d]">Chain-of-Custody Audit Trail</h2>
           <p className="text-sm text-slate-500 mt-1">Immutable record of every AI agent action and decision.</p>
         </div>
         <button 
           onClick={handleExport}
-          className="nexus-btn-outline flex items-center gap-2"
+          className="nexus-btn-outline flex items-center gap-2 text-sm"
         >
           <Download className="w-4 h-4" />
-          Export PDF Report
+          Export CSV
         </button>
       </div>
 
@@ -76,66 +133,85 @@ export default function AuditLogsPage() {
         </div>
         <div className="relative">
           <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <select className="nexus-input pl-10 h-11 appearance-none">
+          <select 
+            className="nexus-input pl-10 h-11 appearance-none"
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+          >
+            <option>All Time</option>
             <option>Last 24 Hours</option>
             <option>Last 7 Days</option>
             <option>Last 30 Days</option>
-            <option>All Time</option>
           </select>
         </div>
         <div className="relative">
           <Bot className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <select className="nexus-input pl-10 h-11 appearance-none">
-            <option>All Agents</option>
-            <option>Orchestrator</option>
-            <option>Collector</option>
-            <option>Verifier</option>
-            <option>Risk Scorer</option>
+          <select 
+            className="nexus-input pl-10 h-11 appearance-none"
+            value={agentFilter}
+            onChange={(e) => setAgentFilter(e.target.value)}
+          >
+            {uniqueAgents.map(a => (
+              <option key={a}>{a}</option>
+            ))}
           </select>
         </div>
       </div>
 
+      {/* Stats */}
+      <div className="flex items-center gap-4 mb-4">
+        <span className="text-xs font-mono text-slate-400">
+          Showing {filteredLogs.length} of {logs.length} entries
+        </span>
+      </div>
+
       {/* Logs Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-[0_2px_12px_rgba(15,31,61,0.04)] flex-1 overflow-hidden flex flex-col">
+      <div className="nexus-card flex-1 overflow-hidden flex flex-col">
         <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left border-collapse">
+          <table className="nexus-table w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50/50">
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Timestamp</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Vendor</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Agent</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Result</th>
-                <th className="p-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Ref ID</th>
+              <tr>
+                <th>Timestamp</th>
+                <th>Vendor</th>
+                <th>Agent</th>
+                <th>Action</th>
+                <th>Result</th>
+                <th>Ref ID</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {loading ? (
                 <tr><td colSpan="6" className="p-8 text-center text-slate-400">Loading audit trail...</td></tr>
               ) : filteredLogs.length === 0 ? (
                 <tr><td colSpan="6" className="p-8 text-center text-slate-400">No logs found matching your filters.</td></tr>
               ) : (
                 filteredLogs.map((log, i) => (
-                  <tr key={i} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 text-sm font-mono text-slate-500">
+                  <tr key={i}>
+                    <td className="font-mono text-slate-500 text-xs whitespace-nowrap">
                       {new Date(log.timestamp).toLocaleString()}
                     </td>
-                    <td className="p-4 text-sm font-bold text-navy">{log.vendor_name}</td>
-                    <td className="p-4">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tighter bg-slate-100 border border-slate-200 text-slate-600">
+                    <td className="font-bold text-[#0f1f3d]">{log.vendor_name}</td>
+                    <td>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-tight ${
+                        AGENT_COLORS[log.agent] || 'bg-slate-500 text-white'
+                      }`}>
                         {log.agent}
                       </span>
                     </td>
-                    <td className="p-4 text-sm text-slate-700">{log.action}</td>
-                    <td className="p-4">
+                    <td className="text-slate-700">{log.action}</td>
+                    <td>
                       {log.reason ? (
-                        <span className="text-xs text-amber-600 font-medium">Flagged: {log.reason}</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium">
+                          <AlertTriangle className="w-3 h-3" /> {log.reason}
+                        </span>
                       ) : (
-                        <span className="text-xs text-emerald-600 font-medium">Verified</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                          <CheckCircle className="w-3 h-3" /> OK
+                        </span>
                       )}
                     </td>
-                    <td className="p-4 text-xs font-mono text-slate-400">
-                      #{Math.random().toString(36).substring(2, 8).toUpperCase()}
+                    <td className="text-xs font-mono text-slate-400">
+                      #{(log.vendor_id || '').slice(0, 8).toUpperCase()}
                     </td>
                   </tr>
                 ))

@@ -44,42 +44,125 @@ async def lifespan(app: FastAPI):
     logger.info(f"   LLM Light Model: {os.getenv('LLM_MODEL_LIGHT', 'llama-3.1-8b-instant')}")
     logger.info(f"   Environment: {os.getenv('APP_ENV', 'development')}")
 
+    # Create required directories
+    os.makedirs(os.getenv("UPLOAD_DIR", "./uploads"), exist_ok=True)
+    os.makedirs(os.getenv("AUDIT_PDF_DIR", "./audit_reports"), exist_ok=True)
+
     # Seed initial vendors for Hackathon Demo
     try:
         from backend.utils.state_manager import state_manager
-        from backend.models.vendor import VendorState
-        
+        from backend.models.vendor import (
+            VendorState, ChecklistItem, FraudFlag,
+            ExceptionItem, DocumentStatus, RiskLevel,
+            WorkflowStatus, HealthStatus, AuditLogEntry,
+        )
+
         v1 = VendorState(
             vendor_id="demo-medtech-001",
             vendor_name="Global Health Supplies Ltd",
             industry="MedTech",
-            workflow_status="active",
+            contact_email="compliance@globalhealth.in",
+            workflow_status=WorkflowStatus.ACTIVE,
             current_step=4,
             documents_pending=["CDSCO Manufacturing Licence"],
             checklist=[
-                {"category": "Legal", "document_name": "Certificate of Incorporation", "required": True, "status": "verified"},
-                {"category": "Financial", "document_name": "GST Registration Certificate", "required": True, "status": "verified"},
+                ChecklistItem(category="Legal", document_name="Certificate of Incorporation", description="MCA21 registered company proof", required=True, status=DocumentStatus.VERIFIED),
+                ChecklistItem(category="Financial", document_name="GST Registration Certificate", description="Active GSTN registration", required=True, status=DocumentStatus.VERIFIED),
+                ChecklistItem(category="Financial", document_name="PAN Card (Company)", description="Permanent Account Number", required=True, status=DocumentStatus.SUBMITTED),
+                ChecklistItem(category="Quality", document_name="ISO 9001:2015 Certificate", description="Quality management system", required=True, status=DocumentStatus.SUBMITTED),
+                ChecklistItem(category="Regulatory", document_name="CDSCO Manufacturing Licence", description="Medical device manufacturing licence", required=True, status=DocumentStatus.PENDING),
+                ChecklistItem(category="Quality", document_name="ISO 13485 Certificate", description="Medical device QMS", required=True, status=DocumentStatus.PENDING),
             ],
-            risk_score="Low",
-            risk_rationale="Initial checks passed cleanly.",
+            risk_score=RiskLevel.LOW,
+            risk_rationale="Initial checks passed cleanly. Company is MCA21 registered and GST compliant. No adverse findings.",
+            health_status=HealthStatus.GREEN,
+            audit_log=[
+                AuditLogEntry(agent="Orchestrator", action="Workflow initiated for MedTech vendor", reason="New onboarding request received"),
+                AuditLogEntry(agent="Orchestrator", action="Generated 6-item compliance checklist for MedTech industry", reason="Industry requires CDSCO + ISO 13485 documentation"),
+                AuditLogEntry(agent="Collector", action="Document collection request sent to vendor", reason="6 documents required for MedTech compliance"),
+                AuditLogEntry(agent="Collector", action="Received Certificate of Incorporation", reason="Document submitted by vendor"),
+                AuditLogEntry(agent="Verifier", action="Verified Certificate of Incorporation via MCA21 API", reason="CIN match confirmed — company registered since 2018"),
+                AuditLogEntry(agent="Collector", action="Received GST Registration Certificate", reason="Document submitted by vendor"),
+                AuditLogEntry(agent="Verifier", action="Verified GST Registration via GSTN API", reason="Active filing status confirmed — last return filed Feb 2026"),
+                AuditLogEntry(agent="Risk Scorer", action="Initial risk assessment: LOW", reason="All verified documents match registry data. No sanctions hits."),
+                AuditLogEntry(agent="Monitor", action="Health check passed — status GREEN", reason="Active compliance, no outstanding flags"),
+            ],
         )
         await state_manager.create_state(v1)
-        
+
         v2 = VendorState(
             vendor_id="demo-it-002",
             vendor_name="TechFlow Systems",
             industry="IT",
-            workflow_status="escalated",
+            contact_email="vendor@techflow.io",
+            workflow_status=WorkflowStatus.ESCALATED,
             current_step=5,
-            fraud_flags=[{"agent": "Verifier", "flag_type": "Data Mismatch", "severity": "high", "description": "GST number inactive"}],
-            exceptions=[{"step": "Verification", "description": "Failed to verify IT service credentials", "severity": "high"}],
-            risk_score="High",
-            risk_rationale="Significant mismatches in submitted documents vs registry.",
+            checklist=[
+                ChecklistItem(category="Legal", document_name="Certificate of Incorporation", description="MCA21 registered company proof", required=True, status=DocumentStatus.VERIFIED),
+                ChecklistItem(category="Financial", document_name="GST Registration Certificate", description="Active GSTN registration", required=True, status=DocumentStatus.FAILED),
+                ChecklistItem(category="Quality", document_name="ISO 27001 Certificate", description="Information security management", required=True, status=DocumentStatus.PENDING),
+            ],
+            fraud_flags=[
+                FraudFlag(doc_name="GST Registration Certificate", flag_type="data_mismatch", description="GST number shows inactive filing status in GSTN registry", severity="high"),
+            ],
+            exceptions=[
+                ExceptionItem(exception_type="verification_failure", description="Failed to verify IT service credentials — GST number inactive", agent="Verifier", requires_human=True),
+            ],
+            risk_score=RiskLevel.HIGH,
+            risk_rationale="Significant mismatches in submitted documents vs registry. GST filing inactive for 6+ months. Requires human compliance officer review.",
+            health_status=HealthStatus.RED,
+            audit_log=[
+                AuditLogEntry(agent="Orchestrator", action="Workflow initiated for IT vendor", reason="New onboarding request received"),
+                AuditLogEntry(agent="Orchestrator", action="Generated 3-item compliance checklist for IT industry", reason="Standard IT vendor requirements"),
+                AuditLogEntry(agent="Collector", action="Document collection request sent to vendor", reason="3 documents required for IT compliance"),
+                AuditLogEntry(agent="Collector", action="Received Certificate of Incorporation", reason="Document submitted by vendor"),
+                AuditLogEntry(agent="Verifier", action="Verified Certificate of Incorporation via MCA21 API", reason="CIN match confirmed"),
+                AuditLogEntry(agent="Collector", action="Received GST Registration Certificate", reason="Document submitted by vendor"),
+                AuditLogEntry(agent="Verifier", action="⚠ VERIFICATION FAILED — GST Registration Certificate", reason="GST number shows INACTIVE filing status in GSTN registry. Last return filed 6+ months ago."),
+                AuditLogEntry(agent="Verifier", action="Fraud flag raised: data_mismatch on GST Certificate", reason="Submitted certificate shows active status but GSTN API confirms inactive"),
+                AuditLogEntry(agent="Risk Scorer", action="Risk assessment: HIGH — workflow ESCALATED", reason="Critical data mismatch. GST filing inactive 6+ months. Requires human compliance review."),
+                AuditLogEntry(agent="Monitor", action="Health check CRITICAL — status RED", reason="Unresolved fraud flag, verification failure"),
+            ],
         )
         await state_manager.create_state(v2)
-        logger.info("   ✅ Seeded initial demo vendors")
+
+        v3 = VendorState(
+            vendor_id="demo-pharma-003",
+            vendor_name="PharmaChem Gujarat",
+            industry="Pharma",
+            contact_email="reg@pharmachem.co.in",
+            workflow_status=WorkflowStatus.COMPLETE,
+            current_step=13,
+            checklist=[
+                ChecklistItem(category="Legal", document_name="Certificate of Incorporation", description="MCA21 registered company proof", required=True, status=DocumentStatus.VERIFIED),
+                ChecklistItem(category="Financial", document_name="GST Registration Certificate", description="Active GSTN registration", required=True, status=DocumentStatus.VERIFIED),
+                ChecklistItem(category="Regulatory", document_name="Drug Licence (Form 20/21)", description="State drug licence", required=True, status=DocumentStatus.VERIFIED),
+                ChecklistItem(category="Quality", document_name="ISO 9001:2015 Certificate", description="Quality management system", required=True, status=DocumentStatus.VERIFIED),
+            ],
+            risk_score=RiskLevel.MEDIUM,
+            risk_rationale="All documents verified. Minor concern flagged regarding CPCB compliance history. Overall acceptable risk for onboarding.",
+            health_status=HealthStatus.AMBER,
+            audit_log=[
+                AuditLogEntry(agent="Orchestrator", action="Workflow initiated for Pharma vendor", reason="New onboarding request received"),
+                AuditLogEntry(agent="Orchestrator", action="Generated 4-item compliance checklist for Pharma industry", reason="Pharma requires Drug Licence verification"),
+                AuditLogEntry(agent="Collector", action="All 4 documents received from vendor", reason="Complete submission — no pending documents"),
+                AuditLogEntry(agent="Verifier", action="Verified Certificate of Incorporation via MCA21 API", reason="CIN match confirmed — registered in Gujarat since 2015"),
+                AuditLogEntry(agent="Verifier", action="Verified GST Registration via GSTN API", reason="Active filing status — quarterly returns current"),
+                AuditLogEntry(agent="Verifier", action="Verified Drug Licence (Form 20/21) via CDSCO API", reason="Valid state drug licence — expiry March 2028"),
+                AuditLogEntry(agent="Verifier", action="Verified ISO 9001:2015 Certificate", reason="Certificate valid — certified by Bureau Veritas"),
+                AuditLogEntry(agent="Risk Scorer", action="Risk assessment: MEDIUM", reason="All docs verified. Minor CPCB compliance flag from 2023 — resolved. Acceptable risk."),
+                AuditLogEntry(agent="Audit Agent", action="Audit trail compiled — 8 entries, narrative generated", reason="Full verification complete"),
+                AuditLogEntry(agent="Audit Agent", action="Vendor onboarding APPROVED — workflow marked COMPLETE", reason="All compliance requirements met. PDF audit report generated."),
+                AuditLogEntry(agent="Monitor", action="Post-approval monitoring initiated — status AMBER", reason="Minor historical CPCB flag warrants continued monitoring"),
+            ],
+        )
+        await state_manager.create_state(v3)
+
+        logger.info("   ✅ Seeded 3 demo vendors")
     except Exception as e:
         logger.warning(f"   ⚠️ Could not seed vendors: {e}")
+        import traceback
+        traceback.print_exc()
 
     # Pre-compile the graph at startup
     try:
@@ -260,11 +343,14 @@ async def get_vendor_status(vendor_id: str):
     if not state:
         raise HTTPException(status_code=404, detail=f"Vendor {vendor_id} not found")
 
+    # Use mode='json' to auto-serialize datetimes and enums
+    state_data = state.model_dump(mode='json')
+
     return NexusAPIResponse(
         status="success",
-        data=state.model_dump(),
+        data=state_data,
         agent_actions_taken=[],
-        message=f"Current status: {state.workflow_status.value if hasattr(state.workflow_status, 'value') else state.workflow_status}",
+        message=f"Current status: {state.workflow_status}",
     )
 
 
@@ -279,14 +365,60 @@ async def list_vendors():
 
     vendors = []
     for state in states:
+        # Serialize checklist items
+        checklist_data = []
+        for item in state.checklist:
+            if hasattr(item, 'model_dump'):
+                checklist_data.append(item.model_dump())
+            elif isinstance(item, dict):
+                checklist_data.append(item)
+
+        # Serialize audit log entries
+        audit_data = []
+        for entry in state.audit_log:
+            if hasattr(entry, 'model_dump'):
+                d = entry.model_dump()
+                d['timestamp'] = d['timestamp'].isoformat() if hasattr(d['timestamp'], 'isoformat') else str(d['timestamp'])
+                audit_data.append(d)
+            elif isinstance(entry, dict):
+                audit_data.append(entry)
+
+        # Serialize fraud flags
+        fraud_data = []
+        for flag in state.fraud_flags:
+            if hasattr(flag, 'model_dump'):
+                d = flag.model_dump()
+                d['detected_at'] = d['detected_at'].isoformat() if hasattr(d.get('detected_at', ''), 'isoformat') else str(d.get('detected_at', ''))
+                fraud_data.append(d)
+            elif isinstance(flag, dict):
+                fraud_data.append(flag)
+
+        # Serialize exceptions
+        exception_data = []
+        for exc in state.exceptions:
+            if hasattr(exc, 'model_dump'):
+                d = exc.model_dump()
+                d['created_at'] = d['created_at'].isoformat() if hasattr(d.get('created_at', ''), 'isoformat') else str(d.get('created_at', ''))
+                exception_data.append(d)
+            elif isinstance(exc, dict):
+                exception_data.append(exc)
+
         vendors.append({
             "vendor_id": state.vendor_id,
             "vendor_name": state.vendor_name,
             "industry": state.industry,
-            "workflow_status": state.workflow_status.value if hasattr(state.workflow_status, 'value') else str(state.workflow_status),
-            "risk_score": state.risk_score.value if state.risk_score and hasattr(state.risk_score, 'value') else state.risk_score,
+            "contact_email": state.contact_email,
+            "workflow_status": str(state.workflow_status),
+            "risk_score": str(state.risk_score) if state.risk_score else None,
+            "risk_rationale": state.risk_rationale,
             "current_step": state.current_step,
-            "health_status": state.health_status.value if state.health_status and hasattr(state.health_status, 'value') else state.health_status,
+            "health_status": str(state.health_status) if state.health_status else None,
+            "checklist": checklist_data,
+            "documents_pending": state.documents_pending,
+            "documents_submitted": state.documents_submitted,
+            "fraud_flags": fraud_data,
+            "exceptions": exception_data,
+            "audit_log": audit_data,
             "created_at": state.created_at.isoformat(),
         })
 

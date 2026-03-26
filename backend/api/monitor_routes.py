@@ -63,6 +63,14 @@ async def run_health_check(vendor_id: str):
 
     result = await run_monitor(state_dict)
 
+    # Persist health check results back to state manager
+    await state_manager.update_state(
+        vendor_id,
+        health_status=result.get("health_status"),
+        monitoring_notes=result.get("monitoring_notes", ""),
+        last_monitored=result.get("last_monitored"),
+    )
+
     return {
         "status": "success",
         "data": {
