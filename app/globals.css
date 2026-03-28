@@ -235,6 +235,16 @@
   animation: checkmark-draw 0.6s ease-out 0.3s forwards;
 }
 
+@keyframes status-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+.animate-status-shake {
+  animation: status-shake 0.8s cubic-bezier(.36,.07,.19,.97) both;
+}
+
 /* ── Scrollbar ────────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {

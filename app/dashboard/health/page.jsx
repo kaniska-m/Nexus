@@ -1,19 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ShieldAlert, Activity, Users, ChevronRight, AlertTriangle, RefreshCw } from 'lucide-react';
-import { getHealthDashboard } from '@/lib/api';
+import { useState, useEffect, useCallback } from 'react';
+import { ShieldAlert, Activity, Users, ChevronRight, AlertTriangle, RefreshCw, Play, Loader2 } from 'lucide-react';
+import { getHealthDashboard, monitorVendor } from '@/lib/api';
 import HealthScoreBadge from '@/components/HealthScoreBadge';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import VendorHealthDrawer from '@/components/VendorHealthDrawer';
+import { useRealtime } from '@/components/RealtimeProvider';
+import toast from 'react-hot-toast';
 
 export default function VendorHealthPage() {
   const [healthData, setHealthData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [globalChecking, setGlobalChecking] = useState(false);
+  const [checkingVendorId, setCheckingVendorId] = useState(null);
   const [selectedDrawerVendor, setSelectedDrawerVendor] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const { subscribeToMonitoringSignals } = useRealtime();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await getHealthDashboard();
@@ -23,9 +28,25 @@ export default function VendorHealthPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Realtime updates via monitoring signals
+  useEffect(() => {
+    const unsubscribe = subscribeToMonitoringSignals((newSignal) => {
+      setHealthData((prev) => {
+        if (!prev) return prev;
+        const vendors = prev.vendors.map((v) =>
+          v.id === newSignal.vendor_id || v.vendor_id === newSignal.vendor_id
+            ? { ...v, health_status: newSignal.health_status, risk_score: newSignal.risk_score, last_monitored: newSignal.created_at }
+            : v
+        );
+        return { ...prev, vendors };
+      });
+    });
+    return unsubscribe;
+  }, [subscribeToMonitoringSignals]);
 
   const vendors = healthData?.vendors || [];
 
@@ -42,6 +63,34 @@ export default function VendorHealthPage() {
     }));
   };
 
+  const handleRunHealthCheck = async (vendorId) => {
+    setCheckingVendorId(vendorId);
+    try {
+      await monitorVendor(vendorId);
+      toast.success('Health check complete');
+    } catch (err) {
+      toast.error('Check failed');
+    } finally {
+      setCheckingVendorId(null);
+    }
+  };
+
+  const handleRunAllChecks = async () => {
+    setGlobalChecking(true);
+    const vids = vendors.map(v => v.id || v.vendor_id);
+    for (const vid of vids) {
+      setCheckingVendorId(vid);
+      try {
+        await monitorVendor(vid);
+        // Small delay to show sequential progress
+        await new Promise(r => setTimeout(r, 800));
+      } catch { /* continue */ }
+    }
+    setCheckingVendorId(null);
+    setGlobalChecking(false);
+    toast.success('Global health monitoring complete');
+  };
+
   return (
     <div className="max-w-[1400px] mx-auto px-6 py-6 page-enter">
       <div className="flex flex-col h-full w-full animate-fade-in relative">
@@ -50,9 +99,19 @@ export default function VendorHealthPage() {
             <h2 className="text-2xl font-syne font-bold text-[#0f1f3d]">Continuous Monitoring</h2>
             <p className="text-sm text-slate-500 mt-1">Real-time risk scoring and alert generation for active vendors.</p>
           </div>
-          <button onClick={fetchData} className="nexus-btn-outline text-sm py-2 flex items-center gap-2">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleRunAllChecks}
+              disabled={globalChecking || vendors.length === 0}
+              className="nexus-btn-teal text-sm py-2 px-4 flex items-center gap-2"
+            >
+              {globalChecking ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              Run Health Check All
+            </button>
+            <button onClick={fetchData} className="nexus-btn-outline text-sm py-2 flex items-center gap-2">
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+            </button>
+          </div>
         </div>
 
         {/* 3 Summary Cards */}
@@ -63,7 +122,7 @@ export default function VendorHealthPage() {
             </div>
             <div>
               <p className="text-sm text-slate-500 font-medium">Healthy</p>
-              <p className="text-2xl font-syne font-bold text-emerald-600 tabular-nums animate-count">{greenCount}</p>
+              <p className="text-2xl font-syne font-bold text-emerald-600 tabular-nums">{greenCount}</p>
             </div>
           </div>
           <div className="nexus-card p-5 flex items-center gap-4 nexus-card-hover">
@@ -72,7 +131,7 @@ export default function VendorHealthPage() {
             </div>
             <div>
               <p className="text-sm text-slate-500 font-medium">Needs Attention</p>
-              <p className="text-2xl font-syne font-bold text-amber-600 tabular-nums animate-count">{amberCount}</p>
+              <p className="text-2xl font-syne font-bold text-amber-600 tabular-nums">{amberCount}</p>
             </div>
           </div>
           <div className="nexus-card p-5 flex items-center gap-4 nexus-card-hover">
@@ -81,7 +140,7 @@ export default function VendorHealthPage() {
             </div>
             <div>
               <p className="text-sm text-slate-500 font-medium">Critical Alerts</p>
-              <p className="text-2xl font-syne font-bold text-red-600 tabular-nums animate-count">{redCount}</p>
+              <p className="text-2xl font-syne font-bold text-red-600 tabular-nums">{redCount}</p>
             </div>
           </div>
         </div>
@@ -102,16 +161,26 @@ export default function VendorHealthPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {loading && !globalChecking ? (
                   <tr><td colSpan="7" className="p-8 text-center text-slate-400">Loading monitoring data...</td></tr>
                 ) : vendors.length === 0 ? (
                   <tr><td colSpan="7" className="p-8 text-center text-slate-400">No vendors currently being monitored.</td></tr>
                 ) : (
                   vendors.map((v, i) => {
                     const status = normalizeStatus(v.health_status);
+                    const isChecking = checkingVendorId === (v.id || v.vendor_id);
                     return (
-                      <tr key={i} className="group">
-                        <td className="font-semibold text-[#0f1f3d]">{v.vendor_name}</td>
+                      <tr
+                        key={i}
+                        className={`group transition-all ${status === 'red' ? 'animate-status-shake bg-red-50/20' : ''}`}
+                        style={{ animationDelay: `${i * 5}s`, animationIterationCount: 'infinite' }}
+                      >
+                        <td className="font-semibold text-[#0f1f3d]">
+                          <div className="flex items-center gap-2">
+                             {isChecking && <Loader2 className="w-3 h-3 animate-spin text-blue-500" />}
+                             {v.vendor_name}
+                          </div>
+                        </td>
                         <td className="text-slate-600">{v.industry}</td>
                         <td>
                           <div className="flex justify-center">
@@ -154,12 +223,22 @@ export default function VendorHealthPage() {
                           {v.last_monitored ? new Date(v.last_monitored).toLocaleString() : 'Just now'}
                         </td>
                         <td className="text-right">
-                          <button
-                            onClick={() => { setSelectedDrawerVendor(v); setIsDrawerOpen(true); }}
-                            className="inline-flex items-center gap-1 text-blue-600 font-semibold text-sm hover:text-blue-700 transition-colors"
-                          >
-                            Details <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleRunHealthCheck(v.id || v.vendor_id)}
+                              disabled={isChecking || globalChecking}
+                              className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-blue-600 transition-colors"
+                              title="Run manual scan"
+                            >
+                              <RefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+                            </button>
+                            <button
+                              onClick={() => { setSelectedDrawerVendor(v); setIsDrawerOpen(true); }}
+                              className="inline-flex items-center gap-1 text-blue-600 font-semibold text-sm hover:text-blue-700 transition-colors"
+                            >
+                              Details <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
