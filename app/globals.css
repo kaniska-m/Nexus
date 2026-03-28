@@ -1,0 +1,335 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --navy: #0f1f3d;
+    --navy-light: #1a3a6b;
+    --accent: #2563eb;
+    --teal: #0d9488;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-800 font-dm antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-syne;
+  }
+
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  /* ── Card System ────────────────────────────────────────────────── */
+
+  .nexus-card {
+    @apply bg-white rounded-xl border border-slate-200/80 shadow-[0_1px_3px_rgba(15,31,61,0.04)] hover:shadow-[0_8px_30px_rgba(15,31,61,0.08)] transition-all duration-300;
+  }
+
+  .nexus-card-glow {
+    @apply nexus-card relative overflow-hidden;
+  }
+
+  .nexus-card-glow::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.03) 0%, rgba(13, 148, 136, 0.03) 100%);
+  }
+
+  .nexus-card-glow:hover::before {
+    @apply opacity-100;
+  }
+
+  .nexus-card-hover {
+    @apply transition-all duration-300 hover:shadow-[0_8px_30px_rgb(15,31,61,0.12)] hover:-translate-y-0.5;
+  }
+
+  /* ── Glassmorphism ─────────────────────────────────────────────── */
+
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl border border-white/20;
+  }
+
+  .glass-dark {
+    background: rgba(15, 31, 61, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    @apply border border-white/10;
+  }
+
+  /* ── Badge System ──────────────────────────────────────────────── */
+
+  .nexus-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold tracking-wide;
+  }
+
+  .badge-active {
+    @apply bg-blue-50 text-blue-700 border border-blue-200/70 ring-1 ring-blue-500/10;
+  }
+
+  .badge-complete {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200/70 ring-1 ring-emerald-500/10;
+  }
+
+  .badge-escalated {
+    @apply bg-red-50 text-red-700 border border-red-200/70 ring-1 ring-red-500/10;
+  }
+
+  .badge-stalled {
+    @apply bg-amber-50 text-amber-700 border border-amber-200/70 ring-1 ring-amber-500/10;
+  }
+
+  .badge-halted {
+    @apply bg-red-100 text-red-800 border border-red-300/70 ring-1 ring-red-500/20;
+  }
+
+  .badge-pending {
+    @apply bg-slate-100 text-slate-600 border border-slate-200/70;
+  }
+
+  .risk-low {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-300/70;
+  }
+
+  .risk-medium {
+    @apply bg-amber-50 text-amber-700 border border-amber-300/70;
+  }
+
+  .risk-high {
+    @apply bg-red-50 text-red-700 border border-red-300/70;
+  }
+
+  .health-green {
+    @apply bg-emerald-50 border border-emerald-300/70 text-emerald-800;
+  }
+
+  .health-amber {
+    @apply bg-amber-50 border border-amber-300/70 text-amber-800;
+  }
+
+  .health-red {
+    @apply bg-red-50 border border-red-300/70 text-red-800;
+  }
+
+  /* ── Button System ─────────────────────────────────────────────── */
+
+  .nexus-btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 cursor-pointer select-none;
+  }
+
+  .nexus-btn-primary {
+    @apply nexus-btn bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .nexus-btn-teal {
+    @apply nexus-btn bg-gradient-to-r from-teal-500 to-teal-600 text-white hover:from-teal-400 hover:to-teal-500 shadow-md shadow-teal-500/20 hover:shadow-lg hover:shadow-teal-500/30 hover:-translate-y-0.5 active:translate-y-0;
+  }
+
+  .nexus-btn-outline {
+    @apply nexus-btn bg-white border border-slate-300 text-slate-700 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 hover:shadow-sm;
+  }
+
+  .nexus-btn-danger {
+    @apply nexus-btn bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-400 hover:to-red-500 shadow-md shadow-red-500/20;
+  }
+
+  /* ── Gradient Backgrounds ──────────────────────────────────────── */
+
+  .nexus-gradient-bg {
+    background: linear-gradient(135deg, #0f1f3d 0%, #1a3a6b 60%, #0d9488 100%);
+  }
+
+  .nexus-gradient-text {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #2563eb 0%, #0d9488 100%);
+  }
+
+  .nexus-gradient-subtle {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.04) 0%, rgba(13, 148, 136, 0.04) 100%);
+  }
+
+  /* ── Input System ──────────────────────────────────────────────── */
+
+  .nexus-input {
+    @apply w-full px-4 py-2.5 rounded-lg border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all placeholder:text-slate-400;
+  }
+
+  /* ── Status Dot ────────────────────────────────────────────────── */
+
+  .status-dot {
+    @apply w-2.5 h-2.5 rounded-full shrink-0;
+  }
+
+  .status-dot-active {
+    @apply status-dot bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse;
+  }
+
+  .status-dot-warning {
+    @apply status-dot bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)];
+  }
+
+  .status-dot-danger {
+    @apply status-dot bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse;
+  }
+
+  /* ── Table Styles ──────────────────────────────────────────────── */
+
+  .nexus-table th {
+    @apply p-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider bg-slate-50/80 border-b border-slate-200;
+  }
+
+  .nexus-table td {
+    @apply p-4 text-sm;
+  }
+
+  .nexus-table tbody tr {
+    @apply border-b border-slate-100 hover:bg-blue-50/30 transition-colors;
+  }
+}
+
+/* ── Confetti & Supplier Portal Animations ───────────────────────── */
+
+@keyframes confetti-fall {
+  0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+@keyframes confetti-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+
+@keyframes pulse-border {
+  0%, 100% { border-color: rgba(245, 158, 11, 0.3); }
+  50% { border-color: rgba(245, 158, 11, 0.7); }
+}
+
+@keyframes checkmark-draw {
+  0% { stroke-dashoffset: 100; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.animate-confetti {
+  animation: confetti-fall 3s ease-in forwards, confetti-shake 0.5s ease-in-out infinite;
+}
+
+.animate-pulse-border {
+  animation: pulse-border 2s ease-in-out infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.animate-checkmark {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: checkmark-draw 0.6s ease-out 0.3s forwards;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ── Animations ───────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out forwards;
+}
+
+.animate-slide-in {
+  animation: slideInRight 0.3s ease-out forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.3s ease-out forwards;
+}
+
+.animate-count {
+  animation: countUp 0.6s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.8s infinite;
+}
+
+/* ── Page Transitions ─────────────────────────────────────────────── */
+
+.page-enter {
+  animation: slideUp 0.35s ease-out forwards;
+}
+
+/* ── Gradient Accent Bar ──────────────────────────────────────────── */
+
+.nexus-accent-bar {
+  height: 3px;
+  background: linear-gradient(90deg, #2563eb 0%, #0d9488 50%, #2563eb 100%);
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
