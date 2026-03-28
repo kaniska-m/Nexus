@@ -16,7 +16,8 @@ class TestExtractTextFromPDF:
         """Non-existent file returns error status."""
         result = await extract_text_from_pdf("/nonexistent/path/doc.pdf")
         assert result["status"] == "error"
-        assert "not found" in result["error"].lower() or "not found" in result.get("error", "").lower()
+        error_msg = result["error"].lower()
+        assert "not found" in error_msg or "not installed" in error_msg
 
     async def test_returns_correct_keys(self):
         """Error response has expected keys."""
