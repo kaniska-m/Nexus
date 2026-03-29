@@ -4,7 +4,9 @@
 // ============================================================================
 
 import { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
 import { callLLM, callLLMJSON } from '@/lib/groq';
 import { checkMCA21, checkGSTN, checkCDSCO, checkSanctionList, checkBankAccount } from '@/lib/tools';
 import { searchFraudPatterns, embedDocument } from '@/lib/chroma';
@@ -84,6 +86,15 @@ export async function POST(
   { params }: { params: { vendorId: string } }
 ) {
   const { vendorId } = params;
+
+  const cookieStore = cookies();
+  const userClient = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { get(name) { return cookieStore.get(name)?.value; } } }
+  );
+  const { data: { user } } = await userClient.auth.getUser();
+  const userEmail = user?.email;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -378,6 +389,48 @@ Produce: { "risk_score": "Low"|"Medium"|"High", "risk_rationale": "3-sentence pr
 
         // Final event with full vendor state
         const { data: finalVendor } = await supabase.from('vendors').select('*').eq('id', vendorId).single();
+        
+        // --- SEND EMAIL ALERTS ---
+        if (userEmail) {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+          try {
+            if (fraudCount > 0) {
+              await fetch(`${appUrl}/api/notify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'fraud_alert',
+                  recipient_email: userEmail,
+                  data: {
+                    vendor_name: vendor.vendor_name,
+                    severity: 'Critical',
+                    description: `${fraudCount} fraud signal(s) detected.`,
+                    recommended_action: 'Halt pipeline and trigger immediate human review.',
+                  },
+                }),
+              });
+            } else if (finalStatus === 'complete') {
+              await fetch(`${appUrl}/api/notify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'verification_complete',
+                  recipient_email: userEmail,
+                  data: {
+                    vendor_name: vendor.vendor_name,
+                    risk_score: riskScore,
+                    status: 'Verified & Cleared',
+                    summary: `Pipeline executed successfully. ${logCount || 0} audit log entries generated.`,
+                  },
+                }),
+              });
+            }
+          } catch (notifyErr) {
+            console.error('Failed to send pipeline alert:', notifyErr);
+          }
+        }
+        // --- END ALERTS ---
+
         const { data: finalChecklist } = await supabase.from('checklist_items').select('*').eq('vendor_id', vendorId);
         const { data: finalFraud } = await supabase.from('fraud_flags').select('*').eq('vendor_id', vendorId);
         const { data: finalAudit } = await supabase.from('audit_logs').select('*').eq('vendor_id', vendorId).order('created_at', { ascending: true });

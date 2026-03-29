@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Clock, TrendingUp, Zap } from 'lucide-react';
 
-function useAnimatedNumber(target, duration = 2000) {
+function useAnimatedNumber(target, duration = 2500) {
   const [value, setValue] = useState(0);
   const startTime = useRef(null);
   const rafRef = useRef(null);
@@ -36,9 +36,9 @@ function useAnimatedNumber(target, duration = 2000) {
 }
 
 export default function TimeSavedCounter({ hours = 0, completedSteps = 0 }) {
-  const animatedHours = useAnimatedNumber(Math.round(hours), 2000);
-  const animatedSteps = useAnimatedNumber(completedSteps, 2000);
-  const animatedCost = useAnimatedNumber(71, 2000);
+  const animatedHours = useAnimatedNumber(Math.round(hours), 2500);
+  const animatedSteps = useAnimatedNumber(completedSteps, 2500);
+  const animatedCost = useAnimatedNumber(71, 2500);
 
   return (
     <div className="nexus-card overflow-hidden">
@@ -51,9 +51,10 @@ export default function TimeSavedCounter({ hours = 0, completedSteps = 0 }) {
             </div>
             <div>
               <p className="text-xs text-white/60 font-medium uppercase tracking-wider">Time Saved</p>
-              <p className="text-3xl font-syne font-bold text-white tabular-nums">
-                {animatedHours}<span className="text-lg text-white/70 ml-1 font-dm">hrs</span>
+              <p className="text-3xl font-syne font-bold text-teal-100 tabular-nums animate-sparkle">
+                {animatedHours}<span className="text-sm text-teal-100/70 ml-1 font-dm font-normal">hrs</span>
               </p>
+              {hours > 0 && <p className="text-[10px] text-white/50 mt-0.5 font-medium">vs. {Math.round(hours * 3)}hrs manual process</p>}
             </div>
           </div>
 

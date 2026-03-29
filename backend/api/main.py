@@ -227,6 +227,13 @@ class NexusAPIResponse(BaseModel):
 @app.get("/health", response_model=NexusAPIResponse)
 async def health_check():
     """Health check endpoint — verifies the server is running."""
+    # Seed fraud patterns on the first health check
+    try:
+        from backend.utils.chroma_client import seed_fraud_patterns
+        seed_fraud_patterns()
+    except Exception as e:
+        logger.warning(f"Chroma seeding failed: {e}")
+
     return NexusAPIResponse(
         status="healthy",
         data={
@@ -535,10 +542,12 @@ try:
     from backend.api.buyer_routes import router as buyer_router
     from backend.api.supplier_routes import router as supplier_router
     from backend.api.monitor_routes import router as monitor_router
+    from backend.api.notify_routes import router as notify_router
 
     app.include_router(buyer_router, prefix="/api/buyer", tags=["Buyer Dashboard"])
     app.include_router(supplier_router, prefix="/api/supplier", tags=["Supplier Portal"])
     app.include_router(monitor_router, prefix="/api/monitor", tags=["Monitoring"])
+    app.include_router(notify_router, prefix="/api/notify", tags=["Notifications"])
 except ImportError as e:
     logger.warning(f"Sub-routers not loaded (will be available in Day 2): {e}")
 

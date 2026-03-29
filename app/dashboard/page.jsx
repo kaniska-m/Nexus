@@ -38,6 +38,7 @@ export default function DashboardPage() {
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [showOnboard, setShowOnboard] = useState(false);
   const [drawerVendor, setDrawerVendor] = useState(null);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
   const [pipelineLoading, setPipelineLoading] = useState(false);
   const [pipelineVendorId, setPipelineVendorId] = useState(null);
@@ -79,6 +80,8 @@ export default function DashboardPage() {
         if (vendorList.length > 0 && !selectedVendor) setSelectedVendor(vendorList[0]);
       } catch (err) {
         console.error('Init Error:', err);
+      } finally {
+        setInitialLoading(false);
       }
     }
     init();
@@ -255,35 +258,50 @@ export default function DashboardPage() {
 
         {/* Demo Mode Banner */}
         {!demoDismissed && (
-          <div className="mb-4 p-4 rounded-xl nexus-gradient-bg text-white flex items-center justify-between animate-slide-down">
-            <div className="flex items-center gap-3">
-              <Sparkles className="w-5 h-5 text-amber-300" />
-              <div>
-                <p className="text-sm font-bold">Hackathon Demo — {totalVendors} AI-verified vendors loaded</p>
-                <p className="text-xs text-white/70">Click Run Pipeline to see all 6 agents in action</p>
+          <div className="mb-6 p-0.5 rounded-xl bg-gradient-to-r from-blue-500 via-teal-400 to-blue-500 animate-slide-down">
+            <div className="bg-white rounded-[11px] p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center border border-teal-100">
+                  <Sparkles className="w-5 h-5 text-teal-600 animate-pulse" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[#0f1f3d]">🎯 Hackathon Demo — 3 AI-verified vendors loaded | Run Pipeline to see agents in action</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Automated pipeline demonstrates full end-to-end multi-agent orchestration.</p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3">
               <button
                 onClick={handleRunDemo}
                 disabled={demoRunning || vendors.length === 0}
-                className="px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2"
+                className="nexus-btn-teal px-4 py-2 text-xs"
               >
                 {demoRunning ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running Demo...</> : <><Play className="w-3.5 h-3.5" /> Run Full Demo</>}
               </button>
-              <button onClick={dismissDemo} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-                <X className="w-4 h-4" />
+              <button onClick={dismissDemo} className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
+                <X className="w-4 h-4 text-slate-400" />
               </button>
+            </div>
             </div>
           </div>
         )}
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatCard icon={Building2} label="Total Vendors" value={totalVendors} color="blue" />
-          <StatCard icon={Loader2} label="Active Pipelines" value={activeCount} color="teal" />
-          <StatCard icon={CheckCircle} label="Completed" value={completedCount} color="emerald" />
-          <StatCard icon={AlertTriangle} label="Flagged / Escalated" value={flaggedCount} color="red" />
+          {initialLoading ? (
+            <>
+              <div className="nexus-card h-[90px] skeleton rounded-xl p-4" />
+              <div className="nexus-card h-[90px] skeleton rounded-xl p-4" style={{ animationDelay: '150ms' }} />
+              <div className="nexus-card h-[90px] skeleton rounded-xl p-4" style={{ animationDelay: '300ms' }} />
+              <div className="nexus-card h-[90px] skeleton rounded-xl p-4" style={{ animationDelay: '450ms' }} />
+            </>
+          ) : (
+            <>
+              <StatCard icon={Building2} label="Total Vendors" value={totalVendors} color="blue" />
+              <StatCard icon={Loader2} label="Active Pipelines" value={activeCount} color="teal" />
+              <StatCard icon={CheckCircle} label="Completed" value={completedCount} color="emerald" />
+              <StatCard icon={AlertTriangle} label="Flagged / Escalated" value={flaggedCount} color="red" />
+            </>
+          )}
         </div>
 
         <div className="flex gap-6 flex-1 min-h-0">
@@ -302,12 +320,29 @@ export default function DashboardPage() {
               </div>
               <span className="text-xs text-slate-400 font-mono whitespace-nowrap">{filteredVendors.length} results</span>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {filteredVendors.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400 py-16">
-                  <Users className="w-12 h-12 mb-3 text-slate-200" />
-                  <p className="text-sm font-medium text-slate-500">{searchTerm ? 'No matching vendors' : 'No vendors yet'}</p>
-                  <p className="text-xs mt-1">{searchTerm ? 'Try a different search term.' : 'Click "New Vendor" to start.'}</p>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 relative">
+              {initialLoading ? (
+                // Skeleton loading for vendor cards
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="nexus-card p-4 flex gap-4 border-slate-100 skeleton h-[100px] rounded-xl" style={{ animationDelay: `${i * 150}ms` }} />
+                ))
+              ) : filteredVendors.length === 0 ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 animate-fade-in text-slate-400">
+                  <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-blue-50 bg-opacity-50 rounded-full animate-ping opacity-20" />
+                    <div className="absolute inset-2 bg-blue-100 rounded-full flex items-center justify-center opacity-60" />
+                    <Bot className="w-10 h-10 text-blue-500 relative z-10 animate-pulse-glow rounded-full bg-white p-2 shadow-sm" />
+                    <Building2 className="w-6 h-6 text-slate-300 absolute -bottom-1 -right-1 z-20 bg-white rounded-full p-1" />
+                  </div>
+                  <h3 className="font-syne text-lg font-bold text-[#0f1f3d] mb-2">{searchTerm ? 'No matching vendors' : 'Ready for AI Onboarding'}</h3>
+                  <p className="text-sm text-slate-500 max-w-[250px] mx-auto mb-6">
+                    {searchTerm ? 'Try a different search term to find what you are looking for.' : 'Onboard your first vendor to see Nexus AI multi-agent orchestration in action.'}
+                  </p>
+                  {!searchTerm && (
+                    <button onClick={() => setShowOnboard(true)} className="nexus-btn-primary shadow-blue-500/20 px-6 py-2.5 rounded-full text-xs animate-slide-up hover:scale-105 active:scale-95 transition-transform duration-200">
+                      <Plus className="w-4 h-4" /> Start Onboarding
+                    </button>
+                  )}
                 </div>
               ) : (
                 filteredVendors.map((v, i) => {

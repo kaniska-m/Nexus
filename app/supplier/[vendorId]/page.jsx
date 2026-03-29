@@ -150,19 +150,30 @@ export default function SupplierPortal() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 page-enter">
       {/* Stage Indicator */}
-      <div className="nexus-card p-6 mb-8">
-        <div className="flex items-center justify-between mb-4">
+      {/* Premium Hero Header */}
+      <div className="nexus-gradient-bg p-8 rounded-2xl text-white shadow-[0_8px_30px_rgba(15,31,61,0.15)] relative overflow-hidden mb-8 animate-slide-down">
+        {/* Glow Effects */}
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-teal-400 rounded-full mix-blend-screen filter blur-[80px] opacity-30 animate-pulse" />
+        <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-blue-500 rounded-full mix-blend-screen filter blur-[80px] opacity-30 animate-pulse" />
+
+        <div className="relative z-10 flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-syne font-bold text-[#0f1f3d]">{vendor.vendor_name}</h2>
-            <p className="text-xs text-slate-500 mt-0.5 font-mono">{vendorId}</p>
+            <p className="text-sm font-bold text-teal-300 uppercase tracking-wider mb-1">Nexus Verified Supplier Portal</p>
+            <h1 className="text-3xl font-syne font-bold mb-2">{vendor.vendor_name}</h1>
+            <p className="text-sm text-white/70 font-mono">Reference ID: {vendorId.slice(0, 16)}</p>
           </div>
-          <span className="nexus-badge bg-teal-50 text-teal-700 border border-teal-200">
+          <span className="bg-white/10 backdrop-blur-md text-white border border-white/20 px-3 py-1 rounded-full text-xs font-bold shadow-sm">
             {vendor.industry}
           </span>
         </div>
+      </div>
+
+      {/* Confetti when pipeline goes active automatically */}
+      {(vendor.workflow_status === 'active' || vendor.workflow_status === 'processing') && <ActiveConfettiHandler vendorId={vendorId} />}
 
         {/* Stage Progress */}
-        <div className="flex items-center gap-0">
+        <div className="nexus-card p-6 mb-8">
+          <div className="flex items-center gap-0">
           {STAGE_CONFIG.map((s, i) => {
             const num = i + 1;
             const isActive = num === stage;
@@ -369,6 +380,25 @@ function Stage2Upload({ vendor, checklist, vendorId, onRefresh, onBack, onComple
     return groups;
   }, [checklist]);
 
+  const [displayPct, setDisplayPct] = useState(0);
+
+  // Smoothly animate progress bar
+  useEffect(() => {
+    let animationFrame;
+    const animate = () => {
+      setDisplayPct((prev) => {
+        if (prev < progressPct) return Math.min(prev + 1, progressPct);
+        if (prev > progressPct) return Math.max(prev - 1, progressPct);
+        return prev;
+      });
+      if (displayPct !== progressPct) {
+        animationFrame = requestAnimationFrame(animate);
+      }
+    };
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [progressPct, displayPct]);
+
   useEffect(() => {
     if (allRequiredDone) {
       setShowConfetti(true);
@@ -387,12 +417,12 @@ function Stage2Upload({ vendor, checklist, vendorId, onRefresh, onBack, onComple
           <span className="text-sm font-bold text-[#0f1f3d]">
             {submittedRequired.length} of {requiredItems.length} required documents submitted
           </span>
-          <span className="text-lg font-syne font-bold nexus-gradient-text">{progressPct}%</span>
+          <span className="text-lg font-syne font-bold nexus-gradient-text tabular-nums">{displayPct}%</span>
         </div>
-        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden shadow-inner">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-teal-500 rounded-full transition-all duration-700 ease-out"
-            style={{ width: `${progressPct}%` }}
+            className="h-full bg-gradient-to-r from-blue-500 via-teal-400 to-teal-500 rounded-full transition-all duration-300 ease-out shadow-md"
+            style={{ width: `${displayPct}%` }}
           />
         </div>
       </div>
@@ -823,22 +853,22 @@ function Stage3Confirmation({ vendor, checklist }) {
 
 function ConfettiOverlay() {
   const colors = ['#2563eb', '#0d9488', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899'];
-  const pieces = Array.from({ length: 40 }, (_, i) => ({
+  const pieces = Array.from({ length: 60 }, (_, i) => ({
     id: i,
     left: Math.random() * 100,
     delay: Math.random() * 2,
-    duration: 2 + Math.random() * 2,
+    duration: 2.5 + Math.random() * 2,
     color: colors[i % colors.length],
-    size: 6 + Math.random() * 8,
+    size: 6 + Math.random() * 10,
     rotation: Math.random() * 360,
   }));
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
       {pieces.map((p) => (
         <div
           key={p.id}
-          className="absolute"
+          className="absolute shadow-sm"
           style={{
             left: `${p.left}%`,
             top: '-20px',
@@ -847,11 +877,34 @@ function ConfettiOverlay() {
             backgroundColor: p.color,
             borderRadius: Math.random() > 0.5 ? '50%' : '2px',
             transform: `rotate(${p.rotation}deg)`,
-            animation: `confetti-fall ${p.duration}s ease-in ${p.delay}s forwards`,
+            animation: `confetti-fall ${p.duration}s ease-in ${p.delay}s forwards, confetti-shake 0.5s ease-in-out infinite`,
             opacity: 0.9,
           }}
         />
       ))}
     </div>
   );
+}
+
+function ActiveConfettiHandler({ vendorId }) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const key = `nexus_active_confetti_${vendorId}`;
+        const hasShown = localStorage.getItem(key);
+        if (!hasShown) {
+          setShow(true);
+          localStorage.setItem(key, 'true');
+          setTimeout(() => setShow(false), 5000);
+        }
+      }
+    } catch {
+      // Ignored
+    }
+  }, [vendorId]);
+
+  if (!show) return null;
+  return <ConfettiOverlay />;
 }

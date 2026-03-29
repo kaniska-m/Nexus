@@ -138,6 +138,23 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('vendor_id', vendor.id);
 
+    // 7. Send notification if email exists
+    if (contact_email) {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/notify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'onboarding_started',
+            recipient_email: contact_email,
+            data: { vendor_id: vendor.id, vendor_name, industry },
+          }),
+        });
+      } catch (notifyErr) {
+        console.error('Failed to trigger onboarding notification:', notifyErr);
+      }
+    }
+
     return NextResponse.json({
       status: 'success',
       data: {

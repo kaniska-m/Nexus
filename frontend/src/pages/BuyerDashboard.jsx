@@ -1,12 +1,18 @@
-import { useState, useCallback, useEffect } from 'react';
+// ============================================================================
+// Nexus — Buyer Dashboard (Realtime)
+// Supabase Realtime subscriptions, SSE pipeline streaming, demo mode.
+// ============================================================================
+
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   LayoutDashboard, Users, Plus, Loader2, ChevronRight,
   Building2, FileCheck, AlertTriangle, TrendingUp, Zap, Search, Clock, Bot, X, ShieldCheck,
-  Copy, CheckCircle, BarChart3
+  Copy, CheckCircle, BarChart3, Play, Sparkles
 } from 'lucide-react';
 import { onboardVendor, runPipeline, getVendorStatus, listVendors } from '../api/nexusApi';
+import { useRealtime } from '../components/RealtimeProvider';
 import TimeSavedCounter from '../components/TimeSavedCounter';
 import AgentActivityFeed from '../components/AgentActivityFeed';
 import VendorRequestCard from '../components/VendorRequestCard';
@@ -15,6 +21,8 @@ import VendorHealthPage from './VendorHealthPage';
 import AuditLogsPage from './AuditLogsPage';
 
 const INDUSTRIES = ['MedTech', 'FinTech', 'GovTech', 'SaaS', 'E-commerce', 'Logistics', 'IT', 'Pharma'];
+
+const API_BASE = '/api';
 
 function StatCard({ icon: Icon, label, value, color = 'blue', suffix = '' }) {
   return (
@@ -32,6 +40,51 @@ function StatCard({ icon: Icon, label, value, color = 'blue', suffix = '' }) {
   );
 }
 
+function DemoBanner({ onRunDemo, demoRunning }) {
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem('nexus_demo_dismissed') === 'true'; } catch { return false; }
+  });
+
+  if (dismissed) return null;
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    try { localStorage.setItem('nexus_demo_dismissed', 'true'); } catch {}
+  };
+
+  return (
+    <div className="demo-banner rounded-xl px-5 py-3.5 mb-5 flex items-center justify-between gap-4 animate-slide-down">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+          <Sparkles className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-[#0f1f3d]">Hackathon Demo</p>
+          <p className="text-xs text-slate-500 truncate">
+            3 AI-verified vendors loaded · Click Run Pipeline to see all 6 agents in action
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={onRunDemo}
+          disabled={demoRunning}
+          className="nexus-btn-teal py-1.5 px-3 text-xs disabled:opacity-50"
+        >
+          {demoRunning ? (
+            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Running Demo...</>
+          ) : (
+            <><Play className="w-3.5 h-3.5" /> Run Full Demo</>
+          )}
+        </button>
+        <button onClick={handleDismiss} className="p-1.5 hover:bg-slate-200/60 rounded-lg transition-colors">
+          <X className="w-4 h-4 text-slate-400" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function OnboardingTab() {
   const [vendors, setVendors] = useState([]);
   const [selectedVendor, setSelectedVendor] = useState(null);
@@ -42,7 +95,14 @@ function OnboardingTab() {
   const [onboardStep, setOnboardStep] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [form, setForm] = useState({ vendor_name: '', industry: 'MedTech', contact_email: '', urgency: 'normal' });
+  const [flashingVendorIds, setFlashingVendorIds] = useState(new Set());
+  const [demoRunning, setDemoRunning] = useState(false);
+  const [sseActive, setSseActive] = useState(false);
+  const [sseEntries, setSseEntries] = useState([]);
+  const eventSourceRef = useRef(null);
+
   const location = useLocation();
+  const { subscribeToVendors } = useRealtime();
 
   useEffect(() => {
     if (location.search === '?new=true') {
@@ -51,6 +111,127 @@ function OnboardingTab() {
     }
   }, [location]);
 
+  // ── Supabase Realtime: vendor updates ─────────────────────────────
+  useEffect(() => {
+    const unsub = subscribeToVendors((newVendor, oldVendor) => {
+      setVendors(prev => {
+        const idx = prev.findIndex(v => v.vendor_id === newVendor.vendor_id);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], ...newVendor };
+          return updated;
+        }
+        return [...prev, newVendor];
+      });
+
+      // Flash animation when workflow_status changes
+      if (oldVendor && newVendor.workflow_status !== oldVendor.workflow_status) {
+        setFlashingVendorIds(prev => new Set([...prev, newVendor.vendor_id]));
+        setTimeout(() => {
+          setFlashingVendorIds(prev => {
+            const next = new Set(prev);
+            next.delete(newVendor.vendor_id);
+            return next;
+          });
+        }, 800);
+      }
+
+      // Update selected vendor if it's the one that changed
+      setSelectedVendor(prev => {
+        if (prev?.vendor_id === newVendor.vendor_id) {
+          return { ...prev, ...newVendor };
+        }
+        return prev;
+      });
+    });
+
+    return unsub;
+  }, [subscribeToVendors]);
+
+  // ── Initial vendor load ───────────────────────────────────────────
+  useEffect(() => {
+    async function init() {
+      try {
+        const res = await listVendors();
+        const data = res?.data || res;
+        const vendorList = Array.isArray(data) ? data : (data?.vendors || []);
+        setVendors(vendorList);
+        if (vendorList.length > 0 && !selectedVendor) setSelectedVendor(vendorList[0]);
+      } catch (err) {
+        console.error("Init Error:", err);
+      }
+    }
+    init();
+  }, []);
+
+  // ── Fallback polling for vendor status (works without Supabase) ───
+  useEffect(() => {
+    if (!selectedVendor?.vendor_id) return;
+    const poll = async () => {
+      try {
+        const res = await getVendorStatus(selectedVendor.vendor_id);
+        const data = res.data || res;
+        setSelectedVendor(data);
+        setVendors(prev => prev.map(v => v.vendor_id === data.vendor_id ? data : v));
+        if (data.workflow_status === 'completed' || data.workflow_status === 'complete' || data.workflow_status === 'failed') {
+          setPipelineLoading(false);
+        }
+      } catch (e) {
+        console.error("Poller Error:", e);
+      }
+    };
+    const interval = setInterval(poll, 5000); // slower since we have realtime
+    return () => clearInterval(interval);
+  }, [selectedVendor?.vendor_id]);
+
+  // ── SSE Pipeline Stream ───────────────────────────────────────────
+  const startSSEStream = useCallback((vendorId) => {
+    // Close any existing stream
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    setSseActive(true);
+    setSseEntries([]);
+
+    const es = new EventSource(`${API_BASE}/vendor/${vendorId}/run-pipeline`);
+    eventSourceRef.current = es;
+
+    es.onmessage = (event) => {
+      try {
+        const entry = JSON.parse(event.data);
+        setSseEntries(prev => [...prev, entry]);
+      } catch (err) {
+        console.warn('SSE parse error:', err);
+      }
+    };
+
+    es.onerror = () => {
+      es.close();
+      eventSourceRef.current = null;
+      setSseActive(false);
+      // Pipeline ended, switch to realtime for future updates
+    };
+
+    es.addEventListener('complete', () => {
+      es.close();
+      eventSourceRef.current = null;
+      setSseActive(false);
+      setPipelineLoading(false);
+      toast.success('Pipeline complete!');
+    });
+  }, []);
+
+  // Cleanup SSE on unmount
+  useEffect(() => {
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+      }
+    };
+  }, []);
+
+  // ── Handlers ──────────────────────────────────────────────────────
   const handleOnboard = useCallback(async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -77,50 +258,41 @@ function OnboardingTab() {
     if (!selectedVendor?.vendor_id) return;
     setPipelineLoading(true);
     try {
-      await runPipeline(selectedVendor.vendor_id);
+      // Try SSE first, fall back to regular POST
+      startSSEStream(selectedVendor.vendor_id);
       toast.success(`Agents deployed for ${selectedVendor.vendor_name}`);
     } catch (err) {
-      toast.error('Pipeline failed: ' + err.message);
-      setPipelineLoading(false);
-    }
-  }, [selectedVendor]);
-
-  useEffect(() => {
-    if (!selectedVendor?.vendor_id) return;
-    const poll = async () => {
+      // Fallback: regular POST
       try {
-        const res = await getVendorStatus(selectedVendor.vendor_id);
-        const data = res.data || res;
-        setSelectedVendor(data);
-        setVendors(prev => prev.map(v => v.vendor_id === data.vendor_id ? data : v));
-        if (data.workflow_status === 'completed' || data.workflow_status === 'complete' || data.workflow_status === 'failed') {
-          setPipelineLoading(false);
-        } else if (data.workflow_status === 'processing' || data.workflow_status === 'halted' || data.workflow_status === 'active') {
-          // keep polling
+        await runPipeline(selectedVendor.vendor_id);
+        toast.success(`Agents deployed for ${selectedVendor.vendor_name}`);
+      } catch (e2) {
+        toast.error('Pipeline failed: ' + e2.message);
+        setPipelineLoading(false);
+      }
+    }
+  }, [selectedVendor, startSSEStream]);
+
+  const handleRunDemo = useCallback(async () => {
+    setDemoRunning(true);
+    try {
+      for (const vendor of vendors) {
+        if (!vendor.vendor_id) continue;
+        try {
+          await runPipeline(vendor.vendor_id);
+          // Small delay between vendors
+          await new Promise(r => setTimeout(r, 500));
+        } catch (err) {
+          console.warn(`Demo pipeline failed for ${vendor.vendor_name}:`, err);
         }
-      } catch (e) {
-        console.error("Poller Error:", e);
       }
-    };
-    const interval = setInterval(poll, 3000);
-    return () => clearInterval(interval);
-  }, [selectedVendor?.vendor_id]);
-
-  useEffect(() => {
-    async function init() {
-      try {
-        const res = await listVendors();
-        const data = res?.data || res;
-        // Handle both {vendors: [...]} and flat array
-        const vendorList = Array.isArray(data) ? data : (data?.vendors || []);
-        setVendors(vendorList);
-        if (vendorList.length > 0 && !selectedVendor) setSelectedVendor(vendorList[0]);
-      } catch (err) {
-        console.error("Init Error:", err);
-      }
+      toast.success('Demo pipeline complete for all vendors!');
+    } catch (err) {
+      toast.error('Demo run failed: ' + err.message);
+    } finally {
+      setDemoRunning(false);
     }
-    init();
-  }, []);
+  }, [vendors]);
 
   // Filter vendors based on search term
   const filteredVendors = Array.isArray(vendors) 
@@ -151,6 +323,9 @@ function OnboardingTab() {
   return (
     <div className="min-h-screen bg-slate-50 page-enter">
       <main className="max-w-[1400px] w-full mx-auto px-6 py-6 flex-1 flex flex-col">
+        {/* Demo Mode Banner */}
+        <DemoBanner onRunDemo={handleRunDemo} demoRunning={demoRunning} />
+
         {/* Stats Row */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard icon={Building2} label="Total Vendors" value={totalVendors} color="blue" />
@@ -184,14 +359,19 @@ function OnboardingTab() {
                  </div>
               ) : (
                 filteredVendors.map((v, i) => (
-                  <VendorRequestCard 
+                  <div 
                     key={v.vendor_id || i}
-                    vendor={v}
-                    isSelected={selectedVendor?.vendor_id === v.vendor_id}
-                    onClick={() => setSelectedVendor(v)}
-                    onCopyLink={() => handleCopyLink(v.vendor_id)}
-                    onViewDetails={() => setDrawerVendor(v)}
-                  />
+                    className={`animate-stagger-in ${flashingVendorIds.has(v.vendor_id) ? 'animate-flash-border' : ''}`}
+                    style={{ animationDelay: `${i * 100}ms` }}
+                  >
+                    <VendorRequestCard 
+                      vendor={v}
+                      isSelected={selectedVendor?.vendor_id === v.vendor_id}
+                      onClick={() => setSelectedVendor(v)}
+                      onCopyLink={() => handleCopyLink(v.vendor_id)}
+                      onViewDetails={() => setDrawerVendor(v)}
+                    />
+                  </div>
                 ))
               )}
             </div>
@@ -222,7 +402,13 @@ function OnboardingTab() {
                   </button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-0">
-                   <AgentActivityFeed auditLog={selectedVendor.audit_log || []} isLive={pipelineLoading} />
+                   <AgentActivityFeed 
+                     auditLog={selectedVendor.audit_log || []} 
+                     isLive={pipelineLoading} 
+                     vendorId={selectedVendor.vendor_id}
+                     sseActive={sseActive}
+                     sseEntries={sseEntries}
+                   />
                 </div>
               </div>
             ) : (

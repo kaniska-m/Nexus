@@ -6,6 +6,27 @@ import BuyerDashboard from './pages/BuyerDashboard';
 import SupplierPortal from './pages/SupplierPortal';
 import VendorHealthPage from './pages/VendorHealthPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import RealtimeProvider, { useRealtime } from './components/RealtimeProvider';
+import DemoGuide from './components/DemoGuide';
+
+function ConnectionIndicator() {
+  const { connectionStatus } = useRealtime();
+  
+  const labels = {
+    connected: 'Connected',
+    reconnecting: 'Reconnecting…',
+    disconnected: 'Offline',
+  };
+
+  return (
+    <div className="flex items-center gap-1.5" title={`Realtime: ${labels[connectionStatus]}`}>
+      <div className={`connection-dot ${connectionStatus}`} />
+      <span className="text-[10px] font-mono text-slate-400 hidden lg:inline">
+        {connectionStatus === 'connected' ? '' : labels[connectionStatus]}
+      </span>
+    </div>
+  );
+}
 
 function NavBar() {
   const location = useLocation();
@@ -51,12 +72,15 @@ function NavBar() {
               </NavLink>
             </div>
           </div>
-          <button 
-            onClick={() => navigate('/buyer?new=true')}
-            className="nexus-btn-primary py-2 px-4 text-sm"
-          >
-            <Plus className="w-4 h-4" /> New Vendor
-          </button>
+          <div className="flex items-center gap-4">
+            <ConnectionIndicator />
+            <button 
+              onClick={() => navigate('/buyer?new=true')}
+              className="nexus-btn-primary py-2 px-4 text-sm"
+            >
+              <Plus className="w-4 h-4" /> New Vendor
+            </button>
+          </div>
         </div>
       </nav>
     </>
@@ -66,23 +90,26 @@ function NavBar() {
 export default function App() {
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-slate-50">
-        <Toaster 
-          position="top-right" 
-          toastOptions={{
-            className: 'font-dm text-sm',
-            style: { borderRadius: '12px', padding: '12px 16px' },
-            success: { style: { background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0' } },
-            error: { style: { background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca' } },
-          }}
-        />
-        <NavBar />
-        <Routes>
-          <Route path="/" element={<BuyerDashboard />} />
-          <Route path="/buyer/*" element={<BuyerDashboard />} />
-          <Route path="/supplier/:vendor_id" element={<SupplierPortal />} />
-        </Routes>
-      </div>
+      <RealtimeProvider>
+        <div className="min-h-screen bg-slate-50">
+          <Toaster 
+            position="top-right" 
+            toastOptions={{
+              className: 'font-dm text-sm',
+              style: { borderRadius: '12px', padding: '12px 16px' },
+              success: { style: { background: '#ecfdf5', color: '#065f46', border: '1px solid #a7f3d0' } },
+              error: { style: { background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca' } },
+            }}
+          />
+          <NavBar />
+          <Routes>
+            <Route path="/" element={<BuyerDashboard />} />
+            <Route path="/buyer/*" element={<BuyerDashboard />} />
+            <Route path="/supplier/:vendor_id" element={<SupplierPortal />} />
+          </Routes>
+          <DemoGuide />
+        </div>
+      </RealtimeProvider>
     </BrowserRouter>
   );
 }
