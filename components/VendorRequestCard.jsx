@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, ChevronRight, Copy, AlertTriangle, CheckCircle, Clock, Loader2 } from 'lucide-react';
+import { Building2, ChevronRight, Copy, AlertTriangle, CheckCircle, Loader2, Zap } from 'lucide-react';
 
 const STATUS_CONFIG = {
   active:    { label: 'Active',    className: 'badge-active' },
@@ -22,7 +22,7 @@ const RISK_CONFIG = {
   high:   { className: 'risk-high', label: 'High Risk' },
 };
 
-export default function VendorRequestCard({ vendor, isSelected, onClick, onCopyLink, onViewDetails }) {
+export default function VendorRequestCard({ vendor, isSelected, onClick, onCopyLink, onViewDetails, onRunPipeline, isPipelineRunning }) {
   const status = vendor.workflow_status || 'pending';
   const statusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const riskConfig = RISK_CONFIG[vendor.risk_score] || null;
@@ -86,6 +86,22 @@ export default function VendorRequestCard({ vendor, isSelected, onClick, onCopyL
           )}
         </div>
         <div className="flex items-center gap-1">
+          {onRunPipeline && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRunPipeline(); }}
+              disabled={isPipelineRunning}
+              className={`p-1.5 rounded-md transition-colors ${
+                isPipelineRunning
+                  ? 'text-blue-400 bg-blue-50 cursor-not-allowed'
+                  : 'text-slate-300 hover:text-teal-600 hover:bg-teal-50'
+              }`}
+              title={isPipelineRunning ? 'Pipeline running...' : 'Run Pipeline'}
+            >
+              {isPipelineRunning
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Zap className="w-3.5 h-3.5" />}
+            </button>
+          )}
           {onCopyLink && (
             <button 
               onClick={(e) => { e.stopPropagation(); onCopyLink(); }} 
