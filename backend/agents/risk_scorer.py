@@ -15,6 +15,7 @@ from backend.models.vendor import DocumentStatus, RiskLevel
 from backend.tools.sanction_checker import check_sanctions
 from backend.utils.llm_wrapper import call_llm, call_llm_json
 from backend.utils.state_manager import state_manager
+from backend.utils.supabase_client import upsert_vendor_risk
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +221,19 @@ async def run_risk_scorer(state: dict[str, Any]) -> dict[str, Any]:
         },
     }
     updated_state.setdefault("audit_log", []).append(audit_entry)
+
+    # ── Persist to Supabase ───────────────────────────────────────────
+    vendor_id = updated_state.get("vendor_id", "")
+    if vendor_id:
+        try:
+            await upsert_vendor_risk(
+                vendor_id=vendor_id,
+                risk_score=computed_risk.value,
+                risk_rationale=risk_rationale,
+                workflow_status=updated_state.get("workflow_status", ""),
+            )
+        except Exception as e:
+            logger.warning(f"Supabase risk persist failed (non-fatal): {e}")
 
     logger.info(f"Risk Scorer complete — Score: {computed_risk.value}, Points: {risk_points}")
 

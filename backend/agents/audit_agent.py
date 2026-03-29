@@ -14,6 +14,7 @@ from typing import Any
 
 from backend.utils.llm_wrapper import call_llm
 from backend.utils.state_manager import state_manager
+from backend.utils.supabase_client import upsert_vendor_audit
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,16 @@ async def run_audit_agent(state: dict[str, Any]) -> dict[str, Any]:
         },
     }
     updated_state.setdefault("audit_log", []).append(audit_entry)
+
+    # ── Persist to Supabase ───────────────────────────────────────────
+    try:
+        await upsert_vendor_audit(
+            vendor_id=vendor_id,
+            audit_summary=audit_summary,
+            audit_log=updated_state.get("audit_log", []),
+        )
+    except Exception as e:
+        logger.warning(f"Supabase audit persist failed (non-fatal): {e}")
 
     logger.info(f"Audit Agent complete — {len(audit_log)} entries compiled")
 

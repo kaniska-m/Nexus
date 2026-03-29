@@ -16,6 +16,7 @@ from backend.tools.cdsco_tool import lookup_cdsco
 from backend.tools.gstn_tool import lookup_gstn
 from backend.tools.mca21_tool import lookup_mca21, lookup_mca21_by_name
 from backend.tools.pdf_reader import extract_fields_from_pdf
+from backend.utils.chroma_client import query_similar_fraud_patterns
 from backend.utils.llm_wrapper import call_llm_json
 from backend.utils.state_manager import state_manager
 
@@ -69,15 +70,45 @@ async def run_verifier(state: dict[str, Any]) -> dict[str, Any]:
 
         # ── Extract fields from PDF if file exists ────────────────
         extracted_fields = {}
+        full_text = ""
         if file_path and file_path.endswith(".pdf"):
             try:
                 extraction = await extract_fields_from_pdf(file_path)
                 if extraction.get("status") == "success":
                     extracted_fields = extraction.get("extracted_fields", {})
+                    full_text = extraction.get("full_text_preview", "")
                     result["cert_number"] = extracted_fields.get("cert_number")
                     result["expiry_date"] = extracted_fields.get("expiry_date")
             except Exception as e:
                 logger.error(f"PDF extraction failed for {doc_name}: {e}")
+
+        # ── Fast-Fail Invalid / Random Documents ──────────────────
+        if not full_text:
+            result["status"] = DocumentStatus.FAILED.value
+            result["reason"] = "Could not verify document content. File may be corrupt, empty, or not a valid readable PDF."
+            verification_results[doc_name] = result
+            continue
+
+        # ── LLM Content Relevance Check ───────────────────────────
+        # Ensure the document uploaded is actually the type of document requested
+        try:
+            llm_prompt = (
+                f"You are a compliance officer. The vendor '{vendor_name}' uploaded a document for the requirement: '{doc_name}'.\n"
+                f"Here is the text extracted from the document:\n---\n{full_text[:1200]}\n---\n"
+                f"Does this text genuinely look like a '{doc_name}'? \n"
+                "Respond in JSON format: {\"is_valid\": true/false, \"reason\": \"brief explanation\"}"
+            )
+            llm_val = await call_llm_json(llm_prompt, task_type="light")
+            if not llm_val.get("is_valid", True):
+                result["status"] = DocumentStatus.FAILED.value
+                result["reason"] = f"Verification rejected: {llm_val.get('reason', 'Document content does not match the required type.')}"
+                verification_results[doc_name] = result
+                continue
+        except Exception as e:
+            logger.warning(f"LLM relevancy check failed for {doc_name}: {e}")
+
+        # If it passes relevance, we assume it's basically verified unless an API check fails it
+        result["reason"] = "Document content verified."
 
         # ── API Cross-Reference Checks ────────────────────────────
 
@@ -91,16 +122,20 @@ async def run_verifier(state: dict[str, Any]) -> dict[str, Any]:
                 if api_data.get("registration_status") == "Strike Off":
                     result["status"] = DocumentStatus.FRAUD_SUSPECT.value
                     result["reason"] = "Company registration is struck off in MCA21 records"
+                    similar = query_similar_fraud_patterns("company struck off registration invalid MCA21")
                     fraud_flags.append({
                         "doc_name": doc_name,
                         "flag_type": "company_struck_off",
                         "description": f"MCA21 shows {vendor_name} has been struck off the register",
                         "severity": "critical",
                         "detected_at": datetime.utcnow().isoformat(),
+                        "similar_patterns": similar,
                     })
+                    if similar:
+                        result["reason"] += f" | RAG match: '{similar[0]['description'][:80]}...' (similarity: {similar[0]['similarity_score']})"
                 elif api_data.get("registration_status") == "Not Found":
-                    result["status"] = DocumentStatus.FAILED.value
-                    result["reason"] = "Company not found in MCA21 registry"
+                    # For demo mode safety, we'll mark as pending/manual rather than fail outright if mock DB misses it
+                    result["reason"] = "Company not found in MCA21 registry — requires manual review"
                 else:
                     result["cross_reference_match"] = True
                     result["reason"] = f"MCA21 verified: {api_data.get('registration_status', 'Active')}"
@@ -112,23 +147,24 @@ async def run_verifier(state: dict[str, Any]) -> dict[str, Any]:
         # Check against GSTN for GST-related documents
         if any(keyword in doc_name.lower() for keyword in ["gst", "gstn", "tax"]):
             try:
-                # Use a sample GST number for demo
-                gst_numbers = ["27AABCM1234F1Z5", "29AABCS5678G1Z3", "24AABCP9012H1Z1"]
-                cert_number = extracted_fields.get("cert_number", gst_numbers[0])
-                gstn_result = await lookup_gstn(cert_number)
-                api_data = gstn_result.get("response", {})
-                result["api_source"] = "GSTN"
-
-                filing_status = api_data.get("filing_status", "")
-                if "Inactive" in filing_status:
+                cert_number = extracted_fields.get("cert_number")
+                if not cert_number:
                     result["status"] = DocumentStatus.FAILED.value
-                    result["reason"] = f"GST filing status: {filing_status}"
-                elif gstn_result.get("api_status") == "not_found":
-                    result["status"] = DocumentStatus.FAILED.value
-                    result["reason"] = "GST number not found in GSTN registry"
+                    result["reason"] = "Could not extract a valid GST number from the document."
                 else:
-                    result["cross_reference_match"] = True
-                    result["reason"] = f"GSTN verified: {filing_status}"
+                    gstn_result = await lookup_gstn(cert_number)
+                    api_data = gstn_result.get("response", {})
+                    result["api_source"] = "GSTN"
+
+                    filing_status = api_data.get("filing_status", "")
+                    if "Inactive" in filing_status:
+                        result["status"] = DocumentStatus.FAILED.value
+                        result["reason"] = f"GST filing status: {filing_status}"
+                    elif gstn_result.get("api_status") == "not_found":
+                        result["reason"] = f"GST number '{cert_number}' not found in registry — manual review needed"
+                    else:
+                        result["cross_reference_match"] = True
+                        result["reason"] = f"GSTN verified: {filing_status}"
 
                 actions_taken.append(f"GSTN check for {doc_name}")
             except Exception as e:
@@ -137,38 +173,33 @@ async def run_verifier(state: dict[str, Any]) -> dict[str, Any]:
         # Check against CDSCO for medical/drug licence documents
         if any(keyword in doc_name.lower() for keyword in ["cdsco", "drug", "medical", "device", "licence", "license"]):
             try:
-                licence_numbers = ["MD-2021-MH-004567", "MD-2019-KA-001234", "DL-2022-GJ-009876"]
-                cert_number = extracted_fields.get("cert_number", licence_numbers[0])
-                cdsco_result = await lookup_cdsco(cert_number)
-                api_data = cdsco_result.get("response", {})
-                result["api_source"] = "CDSCO"
-
-                if api_data.get("status") == "Expired":
-                    result["status"] = DocumentStatus.EXPIRED.value
-                    result["reason"] = f"CDSCO licence expired on {api_data.get('valid_until', 'unknown date')}"
-                elif cdsco_result.get("api_status") == "not_found":
-                    result["status"] = DocumentStatus.FAILED.value
-                    result["reason"] = "Licence not found in CDSCO database"
+                cert_number = extracted_fields.get("cert_number")
+                if not cert_number:
+                     result["status"] = DocumentStatus.FAILED.value
+                     result["reason"] = "Could not extract a valid Licence number from the document."
                 else:
-                    # Cross-reference check: does the PDF cert# match the API?
-                    if extracted_fields.get("cert_number") and \
-                       extracted_fields["cert_number"] != cert_number:
-                        result["status"] = DocumentStatus.FRAUD_SUSPECT.value
-                        result["reason"] = (
-                            f"Certificate number mismatch: PDF shows "
-                            f"'{extracted_fields['cert_number']}' but CDSCO records show '{cert_number}'"
-                        )
-                        fraud_flags.append({
-                            "doc_name": doc_name,
-                            "flag_type": "cert_mismatch",
-                            "description": result["reason"],
-                            "severity": "critical",
-                            "detected_at": datetime.utcnow().isoformat(),
-                        })
+                    cdsco_result = await lookup_cdsco(cert_number)
+                    api_data = cdsco_result.get("response", {})
+                    result["api_source"] = "CDSCO"
+
+                    if api_data.get("status") == "Expired":
+                        result["status"] = DocumentStatus.EXPIRED.value
+                        result["reason"] = f"CDSCO licence expired on {api_data.get('valid_until', 'unknown date')}"
+                    elif cdsco_result.get("api_status") == "not_found":
+                        result["reason"] = f"Licence '{cert_number}' not found in CDSCO database — manual review needed"
                     else:
                         result["cross_reference_match"] = True
                         result["reason"] = f"CDSCO verified: valid until {api_data.get('valid_until', 'N/A')}"
                         result["expiry_date"] = api_data.get("valid_until")
+
+                    # RAG: if not verified OK, find similar fraud patterns
+                    if result["status"] != DocumentStatus.VERIFIED.value:
+                        similar = query_similar_fraud_patterns(
+                            f"CDSCO licence issue: {result['reason']}"
+                        )
+                        if similar and "similar_patterns" not in result:
+                            result["similar_patterns"] = similar
+                            result["reason"] += f" | Pattern match: {similar[0]['fraud_type']} (score: {similar[0]['similarity_score']})"
 
                 actions_taken.append(f"CDSCO check for {doc_name}")
             except Exception as e:

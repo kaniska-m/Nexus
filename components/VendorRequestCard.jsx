@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, ChevronRight, Copy, AlertTriangle, CheckCircle, Loader2, Zap } from 'lucide-react';
+import { Building2, ChevronRight, Copy, AlertTriangle, CheckCircle, Loader2, Zap, ExternalLink } from 'lucide-react';
 
 const STATUS_CONFIG = {
   active:    { label: 'Active',    className: 'badge-active' },
@@ -102,15 +102,6 @@ export default function VendorRequestCard({ vendor, isSelected, onClick, onCopyL
                 : <Zap className="w-3.5 h-3.5" />}
             </button>
           )}
-          {onCopyLink && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); onCopyLink(); }} 
-              className="p-1.5 rounded-md text-slate-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-              title="Copy Supplier Portal Link"
-            >
-              <Copy className="w-3.5 h-3.5" />
-            </button>
-          )}
           <button
             onClick={(e) => { e.stopPropagation(); onViewDetails?.(); }}
             className="p-1.5 rounded-md text-slate-300 hover:text-blue-500 hover:bg-blue-50 transition-colors"
@@ -122,6 +113,29 @@ export default function VendorRequestCard({ vendor, isSelected, onClick, onCopyL
           </button>
         </div>
       </div>
+
+      {/* Supplier Portal Link — prominent for reviewers */}
+      {onCopyLink && (vendor.vendor_id || vendor.id) && (
+        <div className="mt-2 pt-2 border-t border-slate-100/80 flex items-center gap-2">
+          <a
+            href={`/supplier/${vendor.vendor_id || vendor.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-[11px] font-bold tracking-wide transition-all hover:shadow-md hover:shadow-teal-500/20 active:scale-95"
+          >
+            <ExternalLink className="w-3 h-3" />
+            Open Supplier Portal
+          </a>
+          <button
+            onClick={(e) => { e.stopPropagation(); onCopyLink(); }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+            title="Copy link"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
