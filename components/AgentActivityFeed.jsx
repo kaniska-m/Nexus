@@ -12,8 +12,18 @@ const AGENT_PILLS = {
   Verifier: 'bg-amber-100 text-amber-800',
   'Risk Scorer': 'bg-red-100 text-red-800',
   'Audit Agent': 'bg-purple-100 text-purple-800',
-  Monitor: 'bg-green-100 text-green-800',
+  Monitor: 'bg-emerald-100 text-emerald-800',
   'Supplier Portal': 'bg-slate-100 text-slate-700',
+};
+
+const AGENT_ICONS = {
+  Orchestrator: '🧠',
+  Collector: '📋',
+  Verifier: '🔍',
+  'Risk Scorer': '⚖️',
+  'Audit Agent': '📝',
+  Monitor: '🛡️',
+  'Supplier Portal': '🏢',
 };
 
 // ── Smart icon logic based on action content ────────────────────────────────
@@ -125,7 +135,28 @@ export default function AgentActivityFeed({ auditLog = [], isLive = false, vendo
   // Newest at top
   const sortedEntries = [...entries].reverse();
 
-  if (sortedEntries.length === 0 && !isLive) {
+  // Group entries within 1.5 seconds of each other
+  const groupedEntries = [];
+  let currentGroup = null;
+
+  for (let i = 0; i < sortedEntries.length; i++) {
+    const entry = sortedEntries[i];
+    const ts = new Date(entry.timestamp).getTime() || 0;
+    
+    if (!currentGroup) {
+      currentGroup = { timestamp: ts, entries: [entry], _id: entry._id || i };
+    } else {
+      if (Math.abs(ts - currentGroup.timestamp) <= 1500) {
+        currentGroup.entries.push(entry);
+      } else {
+        groupedEntries.push(currentGroup);
+        currentGroup = { timestamp: ts, entries: [entry], _id: entry._id || i };
+      }
+    }
+  }
+  if (currentGroup) groupedEntries.push(currentGroup);
+
+  if (groupedEntries.length === 0 && !isLive) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center text-slate-400">
         <Bot className="w-10 h-10 mb-3 text-slate-200" />
@@ -154,54 +185,74 @@ export default function AgentActivityFeed({ auditLog = [], isLive = false, vendo
 
       {/* Processing indicator */}
       {isLive && processingAgent && (
-        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-blue-50 border border-blue-100 animate-pulse-slow">
-          <div className="flex gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-          </div>
-          <span className="text-xs font-semibold text-blue-600">Agent processing...</span>
+        <div className="flex items-center gap-2 pl-[52px] animate-fade-in mb-3 mt-1">
+          <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 shadow-sm inline-flex items-center gap-1.5">
+            {AGENT_ICONS[processingAgent]} Agent thinking
+            <span className="flex gap-0.5 ml-1">
+              <span className="w-1 h-1 rounded-full bg-blue-500" style={{ animation: 'typing 1.4s infinite 0.2s' }} />
+              <span className="w-1 h-1 rounded-full bg-blue-500" style={{ animation: 'typing 1.4s infinite 0.4s' }} />
+              <span className="w-1 h-1 rounded-full bg-blue-500" style={{ animation: 'typing 1.4s infinite 0.6s' }} />
+            </span>
+          </span>
         </div>
       )}
 
-      {sortedEntries.map((entry, i) => {
-        const isMostRecent = i === 0 && (isLive || isStreaming);
-        const pillClass = AGENT_PILLS[entry.agent] || 'bg-slate-100 text-slate-700';
-        const { Icon, color, bg } = getEntryIcon(entry);
+      {groupedEntries.map((group, groupIdx) => {
+        const isMostRecentGroup = groupIdx === 0 && (isLive || isStreaming);
+        // The display entry is the first of the group (newest within group)
+        const primaryEntry = group.entries[0];
+        const primaryPillClass = AGENT_PILLS[primaryEntry.agent] || 'bg-slate-100 text-slate-700';
+        const primaryIconEmoji = AGENT_ICONS[primaryEntry.agent] || '🤖';
+        const { Icon: PrimaryIconSVG, color, bg } = getEntryIcon(primaryEntry);
 
         return (
           <div
-            key={entry._id || i}
-            className={`relative flex gap-3 ${
-              isMostRecent ? 'animate-slide-down' : ''
-            } ${entry._isNew ? 'animate-slide-in' : ''}`}
+            key={group._id}
+            className={`relative flex gap-3 ${isMostRecentGroup ? 'animate-slide-down' : ''} ${primaryEntry._isNew ? 'animate-slide-in' : ''}`}
           >
+            {/* Timeline Line (for grouping visual) if multiple entries exist */}
+            {group.entries.length > 1 && (
+              <div className="absolute left-[15px] top-[40px] bottom-2 w-0.5 bg-slate-200 rounded-full" />
+            )}
+
             {/* Icon */}
-            <div className="shrink-0 mt-1">
+            <div className="shrink-0 mt-1 relative z-10">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${bg} ${
-                isMostRecent ? 'ring-2 ring-teal-400/40 shadow-[0_0_10px_rgba(13,148,136,0.4)]' : ''
+                isMostRecentGroup ? 'ring-2 ring-teal-400/40 shadow-[0_0_10px_rgba(13,148,136,0.4)]' : ''
               }`}>
-                <Icon className={`w-4 h-4 ${color}`} />
+                <PrimaryIconSVG className={`w-4 h-4 ${color}`} />
               </div>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 min-w-0 bg-white rounded-xl p-3.5 shadow-[0_1px_3px_rgba(15,31,61,0.04)] border border-slate-100 hover:border-slate-200 hover:shadow-sm transition-all group">
-              <div className="flex justify-between items-center mb-1.5">
-                <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${pillClass}`}>
-                  {entry.agent}
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {formatTime(entry.timestamp)}
-                </span>
-              </div>
-              <p className="text-sm text-slate-800 leading-snug font-medium">{entry.action}</p>
-              {entry.reason && (
-                <p className="text-xs text-slate-500 mt-1.5 pl-2 border-l-2 border-slate-200 leading-relaxed">
-                  {entry.reason}
-                </p>
-              )}
+            {/* Content Group */}
+            <div className="flex-1 min-w-0 space-y-2">
+              {group.entries.map((entry, idx) => {
+                const isPrimary = idx === 0;
+                const pillClass = AGENT_PILLS[entry.agent] || 'bg-slate-100 text-slate-700';
+                const iconEmoji = AGENT_ICONS[entry.agent] || '🤖';
+
+                return (
+                  <div key={entry._id || Math.random()} className={`bg-white rounded-xl ${isPrimary ? 'p-3.5 shadow-sm border border-slate-200' : 'p-3 border border-slate-100 bg-slate-50/30'} hover:border-blue-200 transition-all group-hover:shadow-md ml-${!isPrimary ? '4' : '0'}`}>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full flex items-center gap-1 ${pillClass}`}>
+                        <span className="text-xs">{iconEmoji}</span> {entry.agent}
+                      </span>
+                      {isPrimary && (
+                        <span className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatTime(entry.timestamp)}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-800 leading-snug font-medium">{entry.action}</p>
+                    {entry.reason && (
+                      <p className="text-xs text-slate-500 mt-1.5 pl-2 border-l-2 border-slate-200 leading-relaxed">
+                        {entry.reason}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );

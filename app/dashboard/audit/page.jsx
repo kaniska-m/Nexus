@@ -135,14 +135,17 @@ export default function AuditLogsPage() {
   return (
     <div className="max-w-[1400px] mx-auto px-6 py-6 page-enter">
       <div className="flex flex-col h-full w-full animate-fade-in">
-        <div className="flex justify-between items-end mb-6">
-          <div>
-            <h2 className="text-2xl font-syne font-bold text-[#0f1f3d]">Chain-of-Custody Audit Trail</h2>
-            <p className="text-sm text-slate-500 mt-1">Immutable record of every AI agent action and decision.</p>
+        <div className="relative mb-6 p-4 -ml-4 rounded-2xl">
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-teal-400/5 to-purple-500/5 blur-md animate-pulse -z-10 rounded-2xl" />
+          <div className="flex justify-between items-end">
+            <div>
+              <h2 className="text-2xl font-syne font-bold text-[#0f1f3d]">Chain-of-Custody Audit Trail</h2>
+              <p className="text-sm text-slate-500 mt-1">Immutable record of every AI agent action and decision.</p>
+            </div>
+            <button onClick={handleExport} className="nexus-btn-outline flex items-center gap-2 text-sm bg-white">
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
           </div>
-          <button onClick={handleExport} className="nexus-btn-outline flex items-center gap-2 text-sm">
-            <Download className="w-4 h-4" /> Export CSV
-          </button>
         </div>
 
         {/* Filter Bar */}

@@ -27,3 +27,9 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+venv/
+.env
+.next/
+node_modules/
+setup_database.sql

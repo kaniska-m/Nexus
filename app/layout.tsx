@@ -2,6 +2,7 @@ import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import NavBar from '@/components/NavBar';
 import { RealtimeProvider } from '@/components/RealtimeProvider';
+import CommandPalette from '@/components/CommandPalette';
 
 export const metadata = {
   title: {
@@ -28,6 +29,7 @@ export default function RootLayout({ children }) {
             />
             <NavBar />
             {children}
+            <CommandPalette />
           </RealtimeProvider>
         </div>
       </body>

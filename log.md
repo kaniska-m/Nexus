@@ -88,3 +88,181 @@ The project was built across 4 phases of production enhancement:
 - Verified 172/172 tests pass on main
 - **Pushed to `origin/main`**: `85487d9..7d826c7`
 - V2 branch is now fully merged and can be deleted
+
+### Task: Generate Vercel v0 Prompt for Frontend Build
+- Created comprehensive `vercel_v0_prompt.md` artifact
+- Covers all 4 pages: Buyer Dashboard, Supplier Portal, Vendor Health, Audit Logs
+- Includes full API endpoint reference (14 endpoints), data shapes, and 3 demo vendor descriptions
+- Specifies design system: navy/teal/accent palette, Inter/Syne/JetBrains Mono fonts, glassmorphism cards
+- Technical notes: Vite proxy config, React Router, Tailwind CSS 3, error handling, loading states
+- Prompt references existing `nexusApi.js` client and hackathon rubric priorities
+
+### Task: Generate Complete v0 Prompt Series for Full-Stack Build
+- Created `v0_prompt_series.md` with 8 sequential prompts for Vercel v0
+- **Prompt 1**: Next.js 14 foundation + Supabase Auth + sidebar layout + design system
+- **Prompt 2**: Supabase database schema (6 tables) + seed data (3 vendors) + API routes
+- **Prompt 3**: AI agent orchestration (6 agents + pipeline) with Groq LLM (free tier)
+- **Prompt 4**: Buyer Dashboard — stats cards, vendor grid, detail drawer, agent activity feed, onboard modal
+- **Prompt 5**: Supplier Portal — progress circle, 14-step stepper, document upload to Supabase Storage
+- **Prompt 6**: Vendor Health Dashboard — Green/Amber/Red cards, health signals, auto-refresh
+- **Prompt 7**: Audit Logs — filterable table, CSV export, agent-colored badges
+- **Prompt 8**: Polish — loading states, animations, responsive design, demo mode, keyboard shortcuts
+- All free-tier services: Supabase (DB+Auth+Storage), Groq (LLM), Resend (email), Tavily (search)
+- Includes deployment checklist for after all prompts are complete
+
+### Task: Rewrite Prompts to Upgrade Existing Project (not create new)
+- Rewrote all 8 prompts in `v0_upgrade_prompts.md` to work with existing codebase
+- Each prompt references exact existing files: BuyerDashboard.jsx (389 lines), SupplierPortal.jsx (275 lines), VendorHealthPage.jsx (180 lines), AuditLogsPage.jsx (226 lines), 9 components, nexusApi.js, index.css (295 lines)
+- **Prompt 1**: Vite → Next.js 14 conversion (preserving ALL existing UI code)
+- **Prompt 2**: Supabase Auth (login page + protected routes + user avatar in header)
+- **Prompt 3**: Supabase DB schema (6 tables) + RLS policies + seed data (3 vendors)
+- **Prompt 4**: Next.js API routes replicating FastAPI agents (Groq LLM, free tier)
+- **Prompt 5**: Supabase Realtime subscriptions + Storage uploads (replace polling + FormData)
+- **Prompt 6**: Resend email notifications (5 notification types)
+- **Prompt 7**: Visual polish — stagger animations, confetti, skeleton loading, demo mode banner, Cmd+K palette
+- **Prompt 8**: Vercel deploy config, health check, README update, floating demo guide
+
+---
+
+## Session — Mar 29, 2026
+
+### Task: Supabase Realtime Subscriptions + SSE Pipeline Streaming
+
+**Before**: All data fetching via polling (`setInterval` every 3s), no realtime subscriptions, static agent activity feed, no SSE support, basic TimeSavedCounter without animation, no demo mode, no keyboard shortcuts, no pagination in audit logs.
+
+**Changes Made**:
+
+#### New Files Created
+- `src/lib/supabase/client.js` — Supabase browser client singleton (env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)
+- `src/components/RealtimeProvider.jsx` — React Context providing:
+  - `connectionStatus` ('connected' | 'reconnecting' | 'disconnected')
+  - `subscribeToVendors(cb)` — postgres_changes on `vendors` table (UPDATE + INSERT)
+  - `subscribeToAuditLogs(vendorId, cb)` — postgres_changes on `audit_logs` table (INSERT)
+  - `subscribeToMonitoringSignals(cb)` — postgres_changes on `monitoring_signals` table (INSERT)
+
+#### Modified Files
+- **`App.jsx`**: Wrapped with `<RealtimeProvider>`, added `<ConnectionIndicator />` in NavBar (colored dot)
+- **`BuyerDashboard.jsx`**:
+  - Supabase Realtime vendor subscriptions replace primary data source (polling kept as 5s fallback)
+  - Flash animation (`animate-flash-border`) on vendor cards when `workflow_status` changes (800ms teal border glow)
+  - Demo Mode banner (dismissible via localStorage `nexus_demo_dismissed`)
+  - "Run Full Demo" button: sequential `POST /api/vendor/{id}/run-pipeline` for all vendors
+  - Staggered vendor card mount animation: `animate-stagger-in` with `animation-delay: i * 100ms`
+  - "Run Pipeline" button opens `EventSource` to stream SSE events → feeds to `AgentActivityFeed`
+  - `sseActive` / `sseEntries` props passed to feed component
+- **`AgentActivityFeed.jsx`**: Complete rewrite with dual data sources:
+  - SSE stream (`EventSource` → `onmessage` → entries) during pipeline
+  - Supabase Realtime (`audit_logs` INSERT) after pipeline or on initial load
+  - Agent label pills with semantic pastel colors (Orchestrator=blue, Collector=teal, Verifier=amber, Risk Scorer=red, Audit Agent=purple, Monitor=green)
+  - Live indicator: green dot with `doubleRingPulse` CSS animation + "LIVE" text
+  - Typing indicator: `typingDots` 3-dot bounce animation between pipeline stages
+  - New entries: `animate-slide-in-top` CSS class
+- **`TimeSavedCounter.jsx`**: Animated count-up from 0 to final value over 2s using `requestAnimationFrame` + ease-out cubic easing
+- **`VendorHealthPage.jsx`**:
+  - Supabase Realtime `monitoring_signals` INSERT → updates health badge in realtime
+  - Red rows: CSS shake animation every 5s with staggered `animation-delay` per row
+  - "Run Health Check All" button: sequential `POST /api/vendor/{id}/monitor`, shows per-row animated state (idle → running → done/error)
+- **`AuditLogsPage.jsx`**:
+  - Supabase Realtime `audit_logs` INSERT → new rows slide in from top (`animate-slide-in-top`)
+  - Keyboard shortcut: `Ctrl/Cmd + K` → focus search input
+  - Row click: expand/collapse showing pretty-printed JSON details
+  - Pagination: 25 rows per page, Previous/Next + numbered page controls
+  - Agent pills with inline pastel styles instead of bold solid colors
+- **`index.css`**: Added 10+ new animation keyframes:
+  - `slideInTop`, `typingDots`, `flashBorder`, `shake`, `doubleRingPulse`, `staggerIn`, `expandRow`
+  - `.live-dot`, `.typing-dots`, `.shake-periodic`, `.connection-dot`, `.demo-banner`
+  - `.agent-pill-*` classes for all 6 agents
+  - Fixed `@import` order (must precede `@tailwind` directives)
+
+#### Dependency Added
+- `@supabase/supabase-js` (12 packages, 0 vulnerabilities)
+
+**Build**: ✓ 2291 modules transformed, dist generated (48 KB CSS + 837 KB JS)
+
+---
+
+### Task: Resend Notifications + Chroma DB Fraud Seeding
+
+**Before**: No automated emails being sent, Chroma vector database not integrated/seeded for fraud search.
+
+**Changes Made**:
+
+#### New Files Created
+- `backend/utils/resend_client.py` — Wraps the `resend` Python SDK. Exposes a reusable, visually styled `nexus_email_template` and an async `send_email` method that falls back gracefully if `RESEND_API_KEY` is missing.
+- `backend/api/notify_routes.py` — `POST /api/notify` endpoint processing different triggers (`onboarding_started`, `document_reminder`, `verification_complete`, `fraud_alert`, `health_alert`, `human_approval_required`), configuring dynamic strings and the standard Nexus HTML email layout.
+- `backend/utils/chroma_client.py` — Establishes Local Persistent Chroma connection. Includes the `seed_fraud_patterns` mechanism adding 15 hackathon-relevant fraud scenarios across multiple categories (tampering, shell company, sanctions, etc.).
+
+#### Modified Files
+- **`backend/api/main.py`**:
+  - Mounted `/api/notify` route on startup.
+  - Added logic in `health_check` (`GET /health`) endpoint to lazily execute `seed_fraud_patterns()`. This means that as soon as the Next.js or generic health ping triggers, Chroma creates its `nexus_fraud_patterns` collection internally. Fully autonomous, zero manual setup logic. 
+
+#### Requirements Added
+- Handled `resend` via `pip install resend`
+- Handled `chromadb` via `pip install chromadb`
+
+---
+
+### Task: Hackathon UI Polish & Demo Guide
+
+**Before**: Clean layout, but somewhat static UI lacking continuous visual feedback and an explicit tour for the judges. `VendorDetailDrawer` only showed an overview without an audit trail.
+
+**Changes Made**:
+
+#### New Features & Components
+- `frontend/src/components/DemoGuide.jsx`: Embedded a floating, sticky hackathon walkthrough element `<?>` with dynamic step-linking. State logic bound to `localStorage` (`nexus_guide_dismissed`), presenting 5 structured stages for a seamless demo presentation. Added to the root `App.jsx`.
+
+#### UI Animations & Interactivity Polished
+- `index.css`: Injected custom 7-stage `@keyframes` (slide-in-top, infinite shake, typing-dots, scan gradient, count-up, flash-border).
+- `TimeSavedCounter.jsx`: Updated text-shadow treatments (`0 0 20px rgba(13,148,136,0.4)`), adjusted font sizing (`text-5xl font-syne`), and properly styled the hours extrapolation to drive home the automation ROI context.
+- `VendorDetailDrawer.jsx`: Overhauled the entire sliding-pane layout. Converted it into a 2-tab interface (Overview vs. Audit Trail). Implemented an animated absolute sliding tab indicator. Connected a `Download Audit Report` button that triggers a browser download from the API `/api/vendor/{vendorId}/audit-pdf`. Included a new continuous vertical left border with staggered timeline nodes for the `agent` breakdown.
+- `VendorHealthPage.jsx`: Replaced Javascript intervals with infinite CSS `animation-shake` + delayed stagger. Replaced the manual refresh with an auto-refresh `setInterval(60000)` and linked it to a dynamic `conic-gradient` CSS-based countdown timer next to the actions. 
+
+---
+
+### Task: Next.js Migration & Realtime Infrastructure Upgrade
+
+**Summary**: Transitioned the frontend architecture to a Next.js App Router setup and integrated Supabase Realtime and Server-Sent Events (SSE) to achieve sub-second live updates.
+
+**Changes Pulled (feat/agentic-realtime-upgrade)**:
+- **Full Next.js Migration**: Migrated the core `Vite` application stack into `app/`, routing dashboard components efficiently while updating package dependency maps in `package.json`.
+- **Supabase Realtime Subscriptions**: Created `RealtimeProvider.tsx` context to establish seamless WebSocket connectivity with Postgres.
+  - Setup subscriptions to `vendors` updates, `audit_logs` inserts, and `monitoring_signals` inserts.
+  - Pushed realtime hooks into `dashboard/page.jsx`, `health/page.jsx`, and `audit/page.jsx` effectively replacing HTTP mid-polling.
+- **Agentic Streaming Pipelines (SSE)**: Redesigned the "Run Pipeline" process via `EventSource`. The frontend now seamlessly streams agent activity blocks during active deployment instead of waiting for absolute HTTP responses. `AgentActivityFeed.jsx` was reworked to merge stream payloads with database queries flawlessly.
+- **UI & Presentation Flow**: Bound the Hackathon `Demo Guide` into the core structure safely, implemented the sequential `animate-count` with `requestAnimationFrame` interpolation on the `TimeSavedCounter`, and introduced stagger animations mapped directly to Supabase updates.
+
+---
+
+### Task: Resend Email Notification System Integration
+
+**Summary**: Added outbound email orchestration via Resend to completely digitize the onboarding communication and internal fraud alerting mechanisms.
+
+**Changes Made**:
+- Installed `resend` via `npm install resend` natively into the Next.js runtime.
+- **Created `lib/resend.ts`**: Built an email transport wrapper securely referencing `RESEND_API_KEY`. Added `nexusEmailTemplate` function configuring an inline-styled, beautifully formatted HTML template injecting the Nexus deep-navy and teal brand accents securely on every outbound email.
+- **Created `app/api/notify/route.ts`**: Exposed an internal `/api/notify` POST endpoint mapping specific notification payloads (`onboarding_started`, `document_reminder`, `verification_complete`, `fraud_alert`, `health_alert`) to highly specific, dynamically populated titles, contents, and Call-to-Action deep links routing back to the `appUrl`.
+- **Pipeline & Orchestration Hooks**:
+  - `app/api/onboard/route.ts`: Fused a background POST fetch triggering the `onboarding_started` email exclusively when `contact_email` is securely defined.
+  - `app/api/pipeline/[vendorId]/route.ts`: Extracted standard SSR user-cookies (`@supabase/ssr`) determining the actively authenticated Buyer user. If fraud signals trip (`fraudCount > 0`), it fires a `fraud_alert` email to the active user triggering human interception immediately. Otherwise, it dispatches the `verification_complete` alert summarizing the final risk scores directly inside their inbox once the state is securely cleared.
+
+---
+
+### Task: UI Polish & Hackathon Demo Preparation
+
+**Session Focus**: Transform the UI into a premium, high-fidelity application for the hackathon presentation.
+
+**Changes Made**:
+- **Global CSS Animations**: Added sophisticated keyframes (`shake`, `typing`, `scan`, `sparkle-glow`) in `globals.css`.
+- **Dashboard Enhancements**: 
+  - Added a "Demo Mode" banner in `BuyerDashboard`.
+  - Implemented skeleton loaders for stat cards and vendor grid to prevent layout shifts.
+  - Added an animated Empty State illustration.
+  - Implemented stagger animations for vendor cards.
+- **Activity Feed**: Rewrote `AgentActivityFeed.jsx` to group rapid entries (< 1.5s apart), add semantic agent icons, and show a dynamic "Agent thinking" typing animation.
+- **Vendor Detail Drawer**: Re-implemented tabs (Overview vs Audit Trail), adding a vertical connecting timeline for the audit logs, and a "Download Certified Audit PDF" button.
+- **Supplier Portal**: Upgraded portal with a premium Hero Header (glowing pulse effects), smoothly animated progress bars, and an `ActiveConfettiHandler` that runs when workflow_status becomes active.
+- **System Monitors**: Applied scan highlight animations to the stat cards in `VendorHealthPage` and added a subtle pulse gradient backdrop to the header in `AuditLogsPage`.
+- **Global Command Palette**: Created `CommandPalette.jsx` triggered by `Ctrl+K` (or `Cmd+K`) to enable rapid keyboard navigation between Dashboard, Health, and Audit pages. Integrated directly into `app/layout.tsx`.
+
+Platform is visually premium, highly responsive to state changes, and ready for an end-to-end judges demo.

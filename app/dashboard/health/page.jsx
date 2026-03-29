@@ -116,29 +116,32 @@ export default function VendorHealthPage() {
 
         {/* 3 Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="nexus-card p-5 flex items-center gap-4 nexus-card-hover">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+          <div className="nexus-card p-5 flex items-center gap-4 nexus-card-hover relative overflow-hidden group">
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(16,185,129,0.1),transparent)] bg-[length:200%_100%] animate-[scan_2.5s_linear_infinite] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="relative z-10 w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <Users className="w-6 h-6" />
             </div>
-            <div>
+            <div className="relative z-10">
               <p className="text-sm text-slate-500 font-medium">Healthy</p>
               <p className="text-2xl font-syne font-bold text-emerald-600 tabular-nums">{greenCount}</p>
             </div>
           </div>
-          <div className="nexus-card p-5 flex items-center gap-4 nexus-card-hover">
-            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+          <div className="nexus-card p-5 flex items-center gap-4 nexus-card-hover relative overflow-hidden group">
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(245,158,11,0.1),transparent)] bg-[length:200%_100%] animate-[scan_2.5s_linear_infinite] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="relative z-10 w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <div>
+            <div className="relative z-10">
               <p className="text-sm text-slate-500 font-medium">Needs Attention</p>
               <p className="text-2xl font-syne font-bold text-amber-600 tabular-nums">{amberCount}</p>
             </div>
           </div>
-          <div className="nexus-card p-5 flex items-center gap-4 nexus-card-hover">
-            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+          <div className="nexus-card p-5 flex items-center gap-4 nexus-card-hover relative overflow-hidden group">
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(239,68,68,0.1),transparent)] bg-[length:200%_100%] animate-[scan_2.5s_linear_infinite] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="relative z-10 w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
               <ShieldAlert className="w-6 h-6" />
             </div>
-            <div>
+            <div className="relative z-10">
               <p className="text-sm text-slate-500 font-medium">Critical Alerts</p>
               <p className="text-2xl font-syne font-bold text-red-600 tabular-nums">{redCount}</p>
             </div>

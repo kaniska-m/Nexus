@@ -1,6 +1,12 @@
-import { useState, useEffect } from 'react';
-import { ShieldAlert, Activity, Users, ChevronRight, AlertTriangle, RefreshCw } from 'lucide-react';
-import { getHealthDashboard } from '../api/nexusApi';
+// ============================================================================
+// Nexus — Vendor Health Page (Realtime)
+// Supabase Realtime monitoring_signals + shake animation for red rows.
+// ============================================================================
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ShieldAlert, Activity, Users, ChevronRight, AlertTriangle, RefreshCw, Play, Loader2 } from 'lucide-react';
+import { getHealthDashboard, monitorVendor } from '../api/nexusApi';
+import { useRealtime } from '../components/RealtimeProvider';
 import HealthScoreBadge from '../components/HealthScoreBadge';
 import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 import VendorHealthDrawer from '../components/VendorHealthDrawer';
@@ -10,6 +16,12 @@ export default function VendorHealthPage() {
   const [loading, setLoading] = useState(false);
   const [selectedDrawerVendor, setSelectedDrawerVendor] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [healthCheckRunning, setHealthCheckRunning] = useState(false);
+  const [vendorCheckState, setVendorCheckState] = useState({}); // { vendorId: 'idle' | 'running' | 'done' }
+  const [shakeRows, setShakeRows] = useState(new Set());
+
+  const { subscribeToMonitoringSignals } = useRealtime();
+  const shakeIntervalRef = useRef(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -27,14 +39,87 @@ export default function VendorHealthPage() {
 
   const vendors = healthData?.vendors || [];
   
-  // Normalize health_status for comparison (handle both "Green" and "green")
   const normalizeStatus = (s) => (s || '').toLowerCase();
 
   const greenCount = vendors.filter(v => normalizeStatus(v.health_status) === 'green').length;
   const amberCount = vendors.filter(v => normalizeStatus(v.health_status) === 'amber').length;
   const redCount = vendors.filter(v => normalizeStatus(v.health_status) === 'red').length;
 
-  // Create mock trend data for the sparkline
+  // Subscribe to realtime monitoring_signals
+  useEffect(() => {
+    const unsub = subscribeToMonitoringSignals((newSignal) => {
+      // Update vendor health data in place when new signal arrives
+      setHealthData(prev => {
+        if (!prev) return prev;
+        const updatedVendors = (prev.vendors || []).map(v => {
+          if (v.vendor_id === newSignal.vendor_id) {
+            return {
+              ...v,
+              health_status: newSignal.health_status || v.health_status,
+              risk_score: newSignal.risk_score || v.risk_score,
+              last_monitored: newSignal.created_at || new Date().toISOString(),
+            };
+          }
+          return v;
+        });
+        return { ...prev, vendors: updatedVendors };
+      });
+    });
+
+    return unsub;
+  }, [subscribeToMonitoringSignals]);
+
+  // Auto-refresh timer
+  const [timeLeft, setTimeLeft] = useState(60);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          fetchData();
+          return 60;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const progressDeg = ((60 - timeLeft) / 60) * 360;
+
+  // Run health check for all vendors
+  const handleRunAllHealthChecks = useCallback(async () => {
+    setHealthCheckRunning(true);
+    
+    // Initialize states
+    const initialState = {};
+    vendors.forEach(v => { initialState[v.vendor_id] = 'idle'; });
+    setVendorCheckState(initialState);
+
+    for (const vendor of vendors) {
+      if (!vendor.vendor_id) continue;
+      
+      setVendorCheckState(prev => ({ ...prev, [vendor.vendor_id]: 'running' }));
+      
+      try {
+        await monitorVendor(vendor.vendor_id);
+        setVendorCheckState(prev => ({ ...prev, [vendor.vendor_id]: 'done' }));
+      } catch (err) {
+        console.warn(`Health check failed for ${vendor.vendor_name}:`, err);
+        setVendorCheckState(prev => ({ ...prev, [vendor.vendor_id]: 'error' }));
+      }
+      
+      // Small delay between checks  
+      await new Promise(r => setTimeout(r, 300));
+    }
+    
+    // Refresh data after all checks
+    await fetchData();
+    setHealthCheckRunning(false);
+    setVendorCheckState({});
+  }, [vendors]);
+
+  // Mock trend data for sparkline
   const generateTrendData = (score) => {
      let base = typeof score === 'number' ? score : 75;
      return Array.from({length: 10}).map((_, i) => ({
@@ -49,9 +134,30 @@ export default function VendorHealthPage() {
           <h2 className="text-2xl font-syne font-bold text-[#0f1f3d]">Continuous Monitoring</h2>
           <p className="text-sm text-slate-500 mt-1">Real-time risk scoring and alert generation for active vendors.</p>
         </div>
-        <button onClick={fetchData} className="nexus-btn-outline text-sm py-2 flex items-center gap-2">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-        </button>
+        <div className="flex items-center gap-4">
+          
+          <div className="flex items-center gap-2 mr-2">
+            <span className="text-xs text-slate-400 font-mono uppercase tracking-wider">Auto-refresh {timeLeft}s</span>
+            <div className="w-4 h-4 rounded-full relative bg-slate-200 flex items-center justify-center">
+              <div 
+                className="absolute inset-[0px] rounded-full transition-all duration-1000 linear" 
+                style={{ background: `conic-gradient(#0d9488 ${progressDeg}deg, transparent ${progressDeg}deg)` }}
+              />
+              <div className="absolute inset-[2px] bg-[#f8fafc] rounded-full" />
+            </div>
+          </div>
+
+          <button 
+            onClick={handleRunAllHealthChecks} 
+            disabled={healthCheckRunning}
+            className={`nexus-btn-teal text-sm py-2 flex items-center gap-2 ${healthCheckRunning ? 'animate-scan cursor-not-allowed opacity-80' : ''}`}
+          >
+             <Play className="w-4 h-4" /> Run Health Check All
+          </button>
+          <button onClick={() => { fetchData(); setTimeLeft(60); }} className="nexus-btn-outline text-sm py-2 flex items-center gap-2">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
+          </button>
+        </div>
       </div>
 
       {/* 3 Summary Cards */}
@@ -97,19 +203,27 @@ export default function VendorHealthPage() {
                 <th>30-Day Trend</th>
                 <th>Active Alerts</th>
                 <th>Last Scan</th>
+                <th className="text-center">Status</th>
                 <th className="text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="7" className="p-8 text-center text-slate-400">Loading monitoring data...</td></tr>
+                <tr><td colSpan="8" className="p-8 text-center text-slate-400">Loading monitoring data...</td></tr>
               ) : vendors.length === 0 ? (
-                <tr><td colSpan="7" className="p-8 text-center text-slate-400">No vendors currently being monitored.</td></tr>
+                <tr><td colSpan="8" className="p-8 text-center text-slate-400">No vendors currently being monitored.</td></tr>
               ) : (
                 vendors.map((v, i) => {
                   const status = normalizeStatus(v.health_status);
+                  const isRed = status === 'red';
+                  const checkState = vendorCheckState[v.vendor_id];
+                  
                   return (
-                    <tr key={i} className="group">
+                    <tr 
+                      key={v.vendor_id || i} 
+                      className={`group ${isRed ? 'bg-red-50/30 animate-shake' : ''}`}
+                      style={isRed ? { animationDelay: `${i * 0.3}s`, animationIterationCount: 'infinite', animationDuration: '5s' } : {}}
+                    >
                       <td className="font-semibold text-[#0f1f3d]">{v.vendor_name}</td>
                       <td className="text-slate-600">{v.industry}</td>
                       <td>
@@ -151,6 +265,23 @@ export default function VendorHealthPage() {
                       </td>
                       <td className="text-sm text-slate-500 font-mono">
                         {v.last_monitored ? new Date(v.last_monitored).toLocaleString() : 'Just now'}
+                      </td>
+                      <td className="text-center">
+                        {checkState === 'running' ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-medium">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Checking
+                          </span>
+                        ) : checkState === 'done' ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium">
+                            ✓ Done
+                          </span>
+                        ) : checkState === 'error' ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium">
+                            ✗ Error
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
                       </td>
                       <td className="text-right">
                         <button 
