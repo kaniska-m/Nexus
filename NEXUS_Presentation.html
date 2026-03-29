@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NEXUS — ET AI Hackathon 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+<style>
+/* ── RESET & BASE ───────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:   #0F1F3D;
+  --navy2:  #1A3560;
+  --teal:   #0D9488;
+  --teal2:  #14B8A6;
+  --amber:  #F59E0B;
+  --white:  #FFFFFF;
+  --ice:    #EFF6FF;
+  --slate:  #334155;
+  --slateL: #64748B;
+  --red:    #DC2626;
+  --green:  #16A34A;
+  --panel:  rgba(15,31,61,0.85);
+}
+html,body{height:100%;overflow:hidden;background:#0F1F3D;font-family:'DM Sans',sans-serif;color:var(--white)}
+
+/* ── DECK WRAPPER ───────────────────────────────────────────── */
+#deck{position:fixed;inset:0;display:flex;align-items:stretch}
+
+/* ── SLIDES ────────────────────────────────────────────────── */
+.slide{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  opacity:0;pointer-events:none;
+  transform:translateX(60px);
+  transition:opacity .55s cubic-bezier(.4,0,.2,1), transform .55s cubic-bezier(.4,0,.2,1);
+  overflow:hidden;
+}
+.slide.active{opacity:1;pointer-events:all;transform:translateX(0)}
+.slide.exit{opacity:0;transform:translateX(-60px)}
+
+/* ── SHARED BG CANVAS ───────────────────────────────────────── */
+canvas#bg{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* ── SLIDE CONTENT LAYER ────────────────────────────────────── */
+.slide > *{position:relative;z-index:1}
+
+/* ── NAV ────────────────────────────────────────────────────── */
+#nav{
+  position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;z-index:100;
+  background:rgba(15,31,61,.75);backdrop-filter:blur(12px);
+  border:1px solid rgba(13,148,136,.35);border-radius:99px;
+  padding:8px 18px;
+}
+.dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.25);cursor:pointer;transition:.3s}
+.dot.on{background:var(--teal);transform:scale(1.35)}
+#nav button{background:none;border:none;color:rgba(255,255,255,.55);font-size:18px;cursor:pointer;line-height:1;transition:.2s;padding:0 4px}
+#nav button:hover{color:var(--teal)}
+#slide-num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--slateL);min-width:38px;text-align:center}
+
+/* ── PROGRESS BAR ───────────────────────────────────────────── */
+#progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--teal),var(--teal2));z-index:200;transition:width .4s cubic-bezier(.4,0,.2,1)}
+
+/* ── KEYBOARD HINT ──────────────────────────────────────────── */
+#hint{position:fixed;bottom:28px;right:32px;font-size:11px;color:rgba(255,255,255,.3);z-index:100;font-family:'JetBrains Mono',monospace}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 1 — TITLE
+══════════════════════════════════════════════════════════════ */
+#s1{background:var(--navy);justify-content:center;padding:0 8vw}
+#s1 .amber-bar{position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--amber)}
+#s1 .teal-bar{position:absolute;right:0;top:0;bottom:0;width:6px;background:var(--teal)}
+#s1 h1{
+  font-family:'Syne',sans-serif;font-size:clamp(72px,12vw,130px);font-weight:800;
+  letter-spacing:0.08em;color:var(--white);line-height:1;
+  opacity:0;transform:translateY(30px);transition:opacity .7s .15s,transform .7s .15s;
+}
+#s1.active h1{opacity:1;transform:none}
+#s1 .tagline{
+  font-family:'Syne',sans-serif;font-size:clamp(14px,2vw,20px);font-weight:400;
+  color:var(--teal2);letter-spacing:0.02em;margin-top:6px;
+  opacity:0;transition:opacity .6s .45s;
+}
+#s1.active .tagline{opacity:1}
+#s1 .desc{
+  font-size:clamp(13px,1.4vw,16px);color:rgba(165,200,225,.85);max-width:640px;
+  margin-top:18px;line-height:1.65;
+  opacity:0;transition:opacity .6s .65s;
+}
+#s1.active .desc{opacity:1}
+#s1 .track-badge{
+  display:inline-flex;align-items:center;gap:8px;margin-top:24px;
+  background:var(--teal);color:#fff;font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  padding:7px 16px;border-radius:4px;
+  opacity:0;transition:opacity .6s .8s;
+}
+#s1.active .track-badge{opacity:1}
+#s1 .stats-row{
+  display:flex;gap:16px;margin-top:32px;flex-wrap:wrap;
+  opacity:0;transition:opacity .6s 1s;
+}
+#s1.active .stats-row{opacity:1}
+.stat-box{
+  background:rgba(26,53,96,.8);border:1px solid rgba(13,148,136,.4);border-radius:8px;
+  padding:14px 22px;text-align:center;min-width:130px;
+}
+.stat-box .val{font-family:'Syne',sans-serif;font-size:24px;font-weight:700;color:var(--amber);display:block}
+.stat-box .lbl{font-size:11px;color:rgba(255,255,255,.6);margin-top:3px;display:block}
+#s1 .hackathon{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);font-size:12px;color:rgba(255,255,255,.3);letter-spacing:.08em;text-transform:uppercase}
+
+/* ══════════════════════════════════════════════════════════════
+   SHARED CONTENT SLIDE SHELL
+══════════════════════════════════════════════════════════════ */
+.content-slide{background:var(--ice);color:var(--navy)}
+.content-slide .slide-header{
+  background:var(--teal);padding:18px 48px 14px;
+  display:flex;flex-direction:column;gap:3px;
+  flex-shrink:0;
+}
+.content-slide .slide-header h2{
+  font-family:'Syne',sans-serif;font-size:15px;font-weight:700;
+  letter-spacing:.2em;text-transform:uppercase;color:#fff;
+}
+.content-slide .slide-header p{font-size:13px;color:rgba(255,255,255,.75);font-style:italic}
+.content-slide .body{flex:1;display:flex;padding:28px 48px 20px;gap:28px;overflow:hidden}
+
+/* Staggered child reveal */
+.reveal-child{opacity:0;transform:translateY(20px);transition:opacity .5s, transform .5s}
+.slide.active .reveal-child:nth-child(1){opacity:1;transform:none;transition-delay:.1s}
+.slide.active .reveal-child:nth-child(2){opacity:1;transform:none;transition-delay:.2s}
+.slide.active .reveal-child:nth-child(3){opacity:1;transform:none;transition-delay:.3s}
+.slide.active .reveal-child:nth-child(4){opacity:1;transform:none;transition-delay:.4s}
+.slide.active .reveal-child:nth-child(5){opacity:1;transform:none;transition-delay:.5s}
+.slide.active .reveal-child:nth-child(6){opacity:1;transform:none;transition-delay:.6s}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 2 — PROBLEM
+══════════════════════════════════════════════════════════════ */
+#s2 .body{align-items:stretch}
+.prob-table{flex:1.5;display:flex;flex-direction:column;gap:10px}
+.prob-row{
+  display:flex;align-items:center;gap:14px;
+  background:#fff;border-radius:8px;padding:12px 16px;
+  box-shadow:0 1px 6px rgba(0,0,0,.06);
+  border-left:4px solid var(--teal);
+  opacity:0;transform:translateX(-20px);
+  transition:opacity .4s,transform .4s;
+}
+.prob-row.danger{border-color:var(--red)}
+.slide.active .prob-row{opacity:1;transform:none}
+.slide.active .prob-row:nth-child(1){transition-delay:.1s}
+.slide.active .prob-row:nth-child(2){transition-delay:.2s}
+.slide.active .prob-row:nth-child(3){transition-delay:.3s}
+.slide.active .prob-row:nth-child(4){transition-delay:.4s}
+.slide.active .prob-row:nth-child(5){transition-delay:.5s}
+.prob-row .what{flex:1;font-size:13.5px;color:var(--slate)}
+.prob-row .tag{
+  white-space:nowrap;font-size:11px;font-weight:600;padding:4px 10px;border-radius:4px;
+  background:#FEF3C7;color:#92400E;
+}
+.prob-row.danger .tag{background:#FEE2E2;color:var(--red)}
+.gap-box{
+  flex:1;background:var(--navy);border-radius:12px;padding:24px;display:flex;flex-direction:column;gap:14px;
+  opacity:0;transform:translateX(20px);transition:opacity .5s .4s,transform .5s .4s;
+}
+.slide.active .gap-box{opacity:1;transform:none}
+.gap-box h3{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:var(--amber)}
+.gap-box p{font-size:13px;color:rgba(255,255,255,.8);line-height:1.6}
+.gap-box .cta{
+  margin-top:auto;background:var(--teal);border-radius:6px;
+  padding:10px 0;text-align:center;font-weight:700;font-size:13px;color:#fff;letter-spacing:.05em;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 3 — SOLUTION
+══════════════════════════════════════════════════════════════ */
+#s3 .body{gap:20px}
+.sol-col{flex:1;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 4px 20px rgba(0,0,0,.1)}
+.sol-col .col-head{padding:14px 20px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.1em;color:#fff;text-align:center}
+.col-head.bad{background:var(--red)}
+.col-head.good{background:var(--green)}
+.sol-col .items{flex:1;background:#fff;padding:16px;display:flex;flex-direction:column;gap:8px}
+.sol-item{
+  display:flex;align-items:flex-start;gap:10px;font-size:13px;padding:8px 10px;border-radius:6px;
+  opacity:0;transform:translateY(12px);transition:.35s;
+}
+.sol-item.bad-item{color:var(--red);background:#FEF2F2}
+.sol-item.good-item{color:var(--green);background:#F0FDF4}
+.slide.active .sol-item{opacity:1;transform:none}
+.slide.active .sol-col:nth-child(1) .sol-item:nth-child(1){transition-delay:.15s}
+.slide.active .sol-col:nth-child(1) .sol-item:nth-child(2){transition-delay:.25s}
+.slide.active .sol-col:nth-child(1) .sol-item:nth-child(3){transition-delay:.35s}
+.slide.active .sol-col:nth-child(1) .sol-item:nth-child(4){transition-delay:.45s}
+.slide.active .sol-col:nth-child(1) .sol-item:nth-child(5){transition-delay:.55s}
+.slide.active .sol-col:nth-child(2) .sol-item:nth-child(1){transition-delay:.2s}
+.slide.active .sol-col:nth-child(2) .sol-item:nth-child(2){transition-delay:.3s}
+.slide.active .sol-col:nth-child(2) .sol-item:nth-child(3){transition-delay:.4s}
+.slide.active .sol-col:nth-child(2) .sol-item:nth-child(4){transition-delay:.5s}
+.slide.active .sol-col:nth-child(2) .sol-item:nth-child(5){transition-delay:.6s}
+.sol-item .icon{font-size:16px;flex-shrink:0;margin-top:1px}
+.sol-final{padding:12px 16px;font-weight:700;font-size:13px;text-align:center;color:#fff}
+.sol-final.bad{background:var(--red)}
+.sol-final.good{background:var(--green)}
+.sol-mid{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:0 4px;flex-shrink:0}
+.arrow-nexus{font-size:32px;color:var(--amber);animation:pulse-arrow 2s ease-in-out infinite}
+@keyframes pulse-arrow{0%,100%{transform:scale(1)}50%{transform:scale(1.2)}}
+.sol-mid span{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--teal);letter-spacing:.1em}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 4 — ARCHITECTURE
+══════════════════════════════════════════════════════════════ */
+#s4{background:var(--navy)}
+#s4 .slide-header{background:rgba(13,148,136,.3);border-bottom:1px solid rgba(13,148,136,.3)}
+#s4 .slide-header h2{color:var(--teal2)}
+#s4 .slide-header p{color:rgba(255,255,255,.5)}
+#s4 .body{flex-direction:column;gap:10px;padding:24px 48px 20px}
+.arch-layer{
+  display:flex;align-items:center;gap:20px;border-radius:8px;padding:13px 20px;
+  border:1px solid rgba(13,148,136,.25);
+  opacity:0;transform:translateX(-24px);transition:opacity .45s,transform .45s;
+}
+.slide.active .arch-layer{opacity:1;transform:none}
+.slide.active .arch-layer:nth-child(1){transition-delay:.08s}
+.slide.active .arch-layer:nth-child(2){transition-delay:.16s}
+.slide.active .arch-layer:nth-child(3){transition-delay:.24s}
+.slide.active .arch-layer:nth-child(4){transition-delay:.32s}
+.slide.active .arch-layer:nth-child(5){transition-delay:.40s}
+.slide.active .arch-layer:nth-child(6){transition-delay:.48s}
+.arch-layer.highlight{background:rgba(13,148,136,.15);border-color:var(--teal)}
+.arch-layer .lname{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--amber);min-width:195px;letter-spacing:.04em}
+.arch-layer .sep{width:1px;height:28px;background:rgba(13,148,136,.4);flex-shrink:0}
+.arch-layer .ldetail{font-size:13px;color:rgba(255,255,255,.8);line-height:1.5}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 5 — AGENTS
+══════════════════════════════════════════════════════════════ */
+#s5 .body{flex-direction:column;gap:14px}
+.agents-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.agent-card{
+  background:#fff;border-radius:10px;padding:16px;
+  border:1px solid #E2E8F0;box-shadow:0 2px 8px rgba(0,0,0,.06);
+  display:flex;flex-direction:column;gap:8px;
+  opacity:0;transform:translateY(16px) scale(.97);
+  transition:opacity .4s,transform .4s;
+}
+.slide.active .agent-card{opacity:1;transform:none}
+.slide.active .agent-card:nth-child(1){transition-delay:.1s}
+.slide.active .agent-card:nth-child(2){transition-delay:.18s}
+.slide.active .agent-card:nth-child(3){transition-delay:.26s}
+.slide.active .agent-card:nth-child(4){transition-delay:.34s}
+.slide.active .agent-card:nth-child(5){transition-delay:.42s}
+.slide.active .agent-card:nth-child(6){transition-delay:.5s;background:#ECFDF5}
+.agent-card:hover{transform:translateY(-3px)!important;box-shadow:0 8px 24px rgba(13,148,136,.18);transition:transform .2s,box-shadow .2s!important}
+.agent-head{display:flex;align-items:center;gap:10px}
+.agent-num{
+  width:30px;height:30px;border-radius:50%;background:var(--teal);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.agent-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--navy)}
+.agent-role{font-size:12px;color:var(--slate);line-height:1.5}
+.dag-banner{
+  background:var(--navy);border-radius:8px;padding:12px 20px;
+  display:flex;flex-direction:column;gap:4px;flex-shrink:0;
+  opacity:0;transition:opacity .5s .6s;
+}
+.slide.active .dag-banner{opacity:1}
+.dag-banner .edges{font-size:12px;color:rgba(255,255,255,.8)}
+.dag-banner .edges b{color:var(--amber)}
+.dag-banner .edge-items{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--teal2);margin-top:2px}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 6 — AUTONOMY
+══════════════════════════════════════════════════════════════ */
+#s6 .body{align-items:stretch;gap:24px}
+.autonomy-left{display:flex;flex-direction:column;gap:16px;flex:0 0 240px}
+.big-stat{
+  background:var(--navy);border-radius:12px;padding:28px 20px;text-align:center;
+  box-shadow:0 4px 20px rgba(0,0,0,.15);
+  opacity:0;transform:scale(.9);transition:opacity .5s .1s,transform .5s .1s;
+}
+.slide.active .big-stat{opacity:1;transform:none}
+.big-stat .num{
+  font-family:'Syne',sans-serif;font-size:80px;font-weight:800;color:var(--amber);
+  line-height:1;display:block;
+}
+.big-stat .sub{font-size:13px;color:rgba(255,255,255,.7);margin-top:6px}
+.gates-box{
+  background:rgba(30,58,96,.7);border:1px solid rgba(13,148,136,.4);border-radius:10px;padding:16px;
+  opacity:0;transition:opacity .5s .35s;
+}
+.slide.active .gates-box{opacity:1}
+.gates-box h4{font-size:11px;font-weight:700;color:var(--amber);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.gates-box p{font-size:12.5px;color:rgba(255,255,255,.7);line-height:1.5}
+.autonomy-right{flex:1;display:flex;flex-direction:column;gap:10px}
+.rec-card{
+  background:#fff;border-radius:8px;padding:14px 16px;border-left:4px solid var(--teal);
+  box-shadow:0 1px 6px rgba(0,0,0,.06);
+  opacity:0;transform:translateX(20px);transition:opacity .4s,transform .4s;
+}
+.slide.active .rec-card:nth-child(1){opacity:1;transform:none;transition-delay:.15s}
+.slide.active .rec-card:nth-child(2){opacity:1;transform:none;transition-delay:.28s}
+.slide.active .rec-card:nth-child(3){opacity:1;transform:none;transition-delay:.41s}
+.slide.active .rec-card:nth-child(4){opacity:1;transform:none;transition-delay:.54s}
+.rec-card h4{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px}
+.rec-card p{font-size:12px;color:var(--slate);line-height:1.5}
+.scenario-banner{
+  background:#EFF6FF;border:1px solid rgba(13,148,136,.3);border-radius:8px;padding:12px 16px;flex-shrink:0;
+  opacity:0;transition:opacity .5s .65s;
+}
+.slide.active .scenario-banner{opacity:1}
+.scenario-banner h4{font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase}
+.scenario-banner ul{list-style:none;display:flex;flex-direction:column;gap:3px}
+.scenario-banner li{font-size:12px;color:var(--slate)}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 7 — MULTI-AGENT DESIGN
+══════════════════════════════════════════════════════════════ */
+#s7 .body{flex-direction:column;gap:16px}
+.flow-bar{
+  display:flex;align-items:center;gap:0;flex-shrink:0;
+  opacity:0;transition:opacity .5s .1s;
+}
+.slide.active .flow-bar{opacity:1}
+.flow-node{
+  flex:1;background:var(--navy);border-radius:8px;padding:12px 10px;text-align:center;
+  position:relative;
+}
+.flow-node.teal{background:var(--teal)}
+.flow-node.dark{background:#064E3B}
+.flow-node .fn{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#fff}
+.flow-node .ft{font-size:10px;color:rgba(255,255,255,.65);margin-top:2px}
+.flow-arrow{font-size:18px;color:var(--amber);padding:0 6px;flex-shrink:0}
+.design-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1}
+.design-card{
+  background:#fff;border-radius:10px;padding:16px;
+  border:1px solid #E2E8F0;border-left:4px solid var(--amber);
+  box-shadow:0 2px 8px rgba(0,0,0,.05);
+  opacity:0;transform:translateY(14px);transition:.4s;
+}
+.slide.active .design-card:nth-child(1){opacity:1;transform:none;transition-delay:.2s}
+.slide.active .design-card:nth-child(2){opacity:1;transform:none;transition-delay:.32s}
+.slide.active .design-card:nth-child(3){opacity:1;transform:none;transition-delay:.44s}
+.slide.active .design-card:nth-child(4){opacity:1;transform:none;transition-delay:.56s}
+.design-card h4{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:6px}
+.design-card p{font-size:12px;color:var(--slate);line-height:1.55}
+.state-box{
+  background:var(--ice);border:1px solid rgba(13,148,136,.35);border-radius:8px;padding:12px 18px;
+  display:flex;gap:18px;align-items:flex-start;flex-shrink:0;
+  opacity:0;transition:opacity .5s .1s;
+}
+.slide.active .state-box{opacity:1}
+.state-box h4{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--teal);margin-bottom:6px;white-space:nowrap}
+.state-box p{font-size:12px;color:var(--slate);line-height:1.5}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 8 — TECHNICAL CREATIVITY
+══════════════════════════════════════════════════════════════ */
+#s8 .body{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:14px;padding:24px 48px 16px}
+.tech-card{
+  background:#fff;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;
+  box-shadow:0 2px 12px rgba(0,0,0,.07);
+  opacity:0;transform:scale(.96);transition:.45s;
+}
+.slide.active .tech-card:nth-child(1){opacity:1;transform:none;transition-delay:.1s}
+.slide.active .tech-card:nth-child(2){opacity:1;transform:none;transition-delay:.22s}
+.slide.active .tech-card:nth-child(3){opacity:1;transform:none;transition-delay:.34s}
+.slide.active .tech-card:nth-child(4){opacity:1;transform:none;transition-delay:.46s}
+.tech-card .tc-head{padding:12px 16px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#fff}
+.tc-head.amber{background:var(--amber)}
+.tc-head.teal{background:var(--teal)}
+.tc-head.green{background:var(--green)}
+.tc-head.navy{background:var(--navy)}
+.tech-card .tc-body{padding:14px 16px;flex:1;font-size:12.5px;color:var(--slate);line-height:1.6}
+.tech-card .tc-body code{
+  font-family:'JetBrains Mono',monospace;font-size:11px;
+  background:#EFF6FF;color:var(--teal);padding:2px 5px;border-radius:3px;
+}
+#s8 .stack-row{
+  position:absolute;bottom:0;left:0;right:0;
+  background:var(--navy);padding:8px 48px;display:flex;gap:0;z-index:10;
+}
+.stack-badge{
+  flex:1;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;
+  font-weight:600;padding:4px;
+}
+.stack-badge:nth-child(odd){color:var(--amber)}
+.stack-badge:nth-child(even){color:var(--teal2)}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 9 — ENTERPRISE
+══════════════════════════════════════════════════════════════ */
+#s9 .body{align-items:stretch}
+.ent-left{flex:0 0 210px;display:flex;flex-direction:column;gap:14px}
+.tests-box{
+  background:var(--navy);border-radius:12px;padding:24px;text-align:center;
+  box-shadow:0 4px 20px rgba(0,0,0,.18);
+  opacity:0;transform:scale(.9);transition:.5s .1s;
+}
+.slide.active .tests-box{opacity:1;transform:none}
+.tests-box .tnum{font-family:'Syne',sans-serif;font-size:72px;font-weight:800;color:var(--green);line-height:1}
+.tests-box .tsub{font-size:13px;color:rgba(255,255,255,.65);margin-top:4px}
+.tests-box .tdetail{font-size:11px;color:rgba(255,255,255,.4);margin-top:8px;line-height:1.5}
+.ent-right{flex:1;display:flex;flex-direction:column;gap:10px}
+.check-item{
+  background:#fff;border-radius:8px;padding:13px 16px;
+  display:flex;align-items:flex-start;gap:14px;
+  box-shadow:0 1px 6px rgba(0,0,0,.05);
+  opacity:0;transform:translateX(18px);transition:.4s;
+}
+.slide.active .check-item:nth-child(1){opacity:1;transform:none;transition-delay:.15s}
+.slide.active .check-item:nth-child(2){opacity:1;transform:none;transition-delay:.26s}
+.slide.active .check-item:nth-child(3){opacity:1;transform:none;transition-delay:.37s}
+.slide.active .check-item:nth-child(4){opacity:1;transform:none;transition-delay:.48s}
+.slide.active .check-item:nth-child(5){opacity:1;transform:none;transition-delay:.59s}
+.check-badge{
+  width:28px;height:28px;background:var(--green);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  flex-shrink:0;
+}
+.check-item h4{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:3px}
+.check-item p{font-size:12px;color:var(--slate);line-height:1.5}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 10 — IMPACT
+══════════════════════════════════════════════════════════════ */
+#s10 .body{align-items:stretch}
+.impact-left{flex:1;display:flex;flex-direction:column;gap:0}
+.chart-wrap{
+  flex:1;display:flex;align-items:flex-end;gap:28px;padding:12px 16px 0;
+  background:#fff;border-radius:12px 12px 0 0;
+  box-shadow:0 2px 10px rgba(0,0,0,.07);
+  opacity:0;transition:.5s .1s;
+}
+.slide.active .chart-wrap{opacity:1}
+.bar-group{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1}
+.bar-label{font-size:11px;color:var(--slateL);text-align:center;font-weight:500}
+.bar-outer{width:100%;background:#EFF6FF;border-radius:6px 6px 0 0;position:relative;overflow:hidden;display:flex;align-items:flex-end}
+.bar-fill{
+  width:100%;border-radius:6px 6px 0 0;
+  transition:height 1.2s cubic-bezier(.4,0,.2,1);
+}
+.bar-val{
+  position:absolute;top:8px;left:0;right:0;text-align:center;
+  font-family:'Syne',sans-serif;font-size:22px;font-weight:700;color:#fff;
+}
+.chart-title{background:#fff;border-radius:0 0 12px 12px;padding:8px;text-align:center;font-size:11px;color:var(--slateL);font-weight:500}
+.impact-right{flex:1;display:flex;flex-direction:column;gap:10px}
+.metric-row{
+  background:#fff;border-radius:8px;padding:14px 18px;
+  display:flex;align-items:center;gap:14px;
+  box-shadow:0 1px 6px rgba(0,0,0,.05);
+  opacity:0;transform:translateX(18px);transition:.4s;
+}
+.slide.active .metric-row:nth-child(1){opacity:1;transform:none;transition-delay:.15s}
+.slide.active .metric-row:nth-child(2){opacity:1;transform:none;transition-delay:.28s}
+.slide.active .metric-row:nth-child(3){opacity:1;transform:none;transition-delay:.41s}
+.slide.active .metric-row:nth-child(4){opacity:1;transform:none;transition-delay:.54s}
+.metric-row .before{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--red);min-width:90px}
+.metric-row .arrow{font-size:18px;color:var(--slateL)}
+.metric-row .after{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;color:var(--green);min-width:90px}
+.metric-row .desc{font-size:11.5px;color:var(--slateL);line-height:1.4;flex:1}
+.assume-box{
+  background:var(--navy);border-radius:8px;padding:12px 16px;
+  opacity:0;transition:opacity .5s .65s;flex-shrink:0;
+}
+.slide.active .assume-box{opacity:1}
+.assume-box h4{font-size:10px;font-weight:700;color:var(--amber);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.assume-box ul{list-style:none;display:flex;flex-direction:column;gap:3px}
+.assume-box li{font-size:11.5px;color:rgba(255,255,255,.7);line-height:1.4}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE 11 — CLOSING
+══════════════════════════════════════════════════════════════ */
+#s11{background:var(--navy);justify-content:center;padding:0 6vw}
+#s11 .inner{max-width:900px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:16px}
+#s11 h2{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--amber);letter-spacing:.06em;margin-bottom:4px}
+.rubric-row{
+  display:flex;align-items:stretch;border-radius:8px;overflow:hidden;
+  opacity:0;transform:translateY(14px);transition:.4s;
+}
+.slide.active .rubric-row:nth-child(2){opacity:1;transform:none;transition-delay:.1s}
+.slide.active .rubric-row:nth-child(3){opacity:1;transform:none;transition-delay:.22s}
+.slide.active .rubric-row:nth-child(4){opacity:1;transform:none;transition-delay:.34s}
+.slide.active .rubric-row:nth-child(5){opacity:1;transform:none;transition-delay:.46s}
+.slide.active .rubric-row:nth-child(6){opacity:1;transform:none;transition-delay:.58s}
+.rubric-pct{
+  background:var(--teal);padding:10px 16px;
+  font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:#fff;
+  display:flex;align-items:center;min-width:68px;justify-content:center;flex-shrink:0;
+}
+.rubric-body{background:rgba(26,53,96,.8);flex:1;padding:10px 20px;display:flex;flex-direction:column;justify-content:center}
+.rubric-body h4{font-size:13px;font-weight:600;color:var(--amber);margin-bottom:2px}
+.rubric-body p{font-size:12px;color:rgba(165,200,225,.85)}
+#s11 .tagline-block{
+  margin-top:8px;background:var(--teal);border-radius:10px;padding:20px;text-align:center;
+  opacity:0;transition:opacity .6s .7s;
+}
+.slide.active .tagline-block{opacity:1}
+#s11 .tagline-block h3{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff;letter-spacing:.04em}
+#s11 .tagline-block p{font-size:12px;color:rgba(255,255,255,.7);margin-top:5px}
+
+/* ══════════════════════════════════════════════════════════════
+   CANVAS PARTICLE BG
+══════════════════════════════════════════════════════════════ */
+</style>
+</head>
+<body>
+
+<canvas id="bg"></canvas>
+<div id="progress"></div>
+
+<div id="deck">
+
+<!-- ══ SLIDE 1 — TITLE ══════════════════════════════════════ -->
+<div class="slide" id="s1">
+  <div class="amber-bar"></div>
+  <div class="teal-bar"></div>
+  <h1>NEXUS</h1>
+  <p class="tagline">Agentic AI for Cross-Boundary Vendor Verification</p>
+  <p class="desc">A multi-agent platform that autonomously manages the entire vendor due diligence workflow — from buyer request to regulator-ready audit pack.</p>
+  <div class="track-badge">⚡ Track 2: Autonomous Enterprise Workflows · ET AI Hackathon 2026</div>
+  <div class="stats-row">
+    <div class="stat-box"><span class="val">6</span><span class="lbl">Specialized Agents</span></div>
+    <div class="stat-box"><span class="val">17/19</span><span class="lbl">Autonomous Steps</span></div>
+    <div class="stat-box"><span class="val">172</span><span class="lbl">Tests Passing</span></div>
+    <div class="stat-box"><span class="val">&lt;$0.15</span><span class="lbl">Cost per Vendor</span></div>
+  </div>
+  <div class="hackathon">Avataar.ai Knowledge Partner</div>
+</div>
+
+<!-- ══ SLIDE 2 — PROBLEM ════════════════════════════════════ -->
+<div class="slide content-slide" id="s2">
+  <div class="slide-header">
+    <h2>The Problem</h2>
+    <p>Vendor due diligence is mandatory, complex, and completely broken</p>
+  </div>
+  <div class="body">
+    <div class="prob-table">
+      <div class="prob-row"><span class="what">Procurement sends 100–300 question Word doc via email</span><span class="tag">Weeks of back-and-forth</span></div>
+      <div class="prob-row"><span class="what">Supplier fills it out manually over 2–3 days</span><span class="tag">Error-prone, inconsistent</span></div>
+      <div class="prob-row"><span class="what">Legal team reads every answer line by line</span><span class="tag">6–8 hours per vendor</span></div>
+      <div class="prob-row"><span class="what">Compliance officer logs into MCA21, GSTN, CDSCO separately</span><span class="tag">Fragmented verification</span></div>
+      <div class="prob-row danger"><span class="what">If anything is missing or expired, the entire cycle restarts</span><span class="tag">Average: 5–8 weeks / vendor</span></div>
+    </div>
+    <div class="gap-box">
+      <h3>The Real Gap</h3>
+      <p>Every existing AI tool works <em>inside one company</em>.</p>
+      <p style="margin-top:10px"><strong style="color:var(--teal2)">NEXUS works across two companies.</strong></p>
+      <p style="margin-top:10px">That buyer–supplier boundary is where the actual workflow pain lives — and no agent system today handles this cross-boundary verification.</p>
+      <div class="cta">5–8 WEEKS → 2 DAYS</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 3 — SOLUTION ═══════════════════════════════════ -->
+<div class="slide content-slide" id="s3">
+  <div class="slide-header">
+    <h2>The Solution</h2>
+    <p>Nexus replaces weeks of manual process with autonomous agents</p>
+  </div>
+  <div class="body">
+    <div class="sol-col">
+      <div class="col-head bad">WITHOUT NEXUS</div>
+      <div class="items">
+        <div class="sol-item bad-item"><span class="icon">✗</span><span>100–300 question Word doc via email</span></div>
+        <div class="sol-item bad-item"><span class="icon">✗</span><span>Supplier fills manually over 3 days</span></div>
+        <div class="sol-item bad-item"><span class="icon">✗</span><span>Staff reads every answer by hand</span></div>
+        <div class="sol-item bad-item"><span class="icon">✗</span><span>Manual logins to MCA21, GSTN, CDSCO</span></div>
+        <div class="sol-item bad-item"><span class="icon">✗</span><span>Certificates checked one by one</span></div>
+      </div>
+      <div class="sol-final bad">5–8 WEEKS average turnaround</div>
+    </div>
+    <div class="sol-mid">
+      <div class="arrow-nexus">→</div>
+      <span>NEXUS</span>
+    </div>
+    <div class="sol-col">
+      <div class="col-head good">WITH NEXUS</div>
+      <div class="items">
+        <div class="sol-item good-item"><span class="icon">✓</span><span>AI-generated smart form, structured &amp; precise</span></div>
+        <div class="sol-item good-item"><span class="icon">✓</span><span>Collector agent chases missing items automatically</span></div>
+        <div class="sol-item good-item"><span class="icon">✓</span><span>Verifier agent reads &amp; validates every document</span></div>
+        <div class="sol-item good-item"><span class="icon">✓</span><span>APIs queried automatically in minutes</span></div>
+        <div class="sol-item good-item"><span class="icon">✓</span><span>Risk score with full written reasoning</span></div>
+      </div>
+      <div class="sol-final good">2 DAYS. One human approval click.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 4 — ARCHITECTURE ══════════════════════════════ -->
+<div class="slide" id="s4">
+  <div class="slide-header">
+    <h2>System Architecture</h2>
+    <p>Full-stack agentic platform with real integrations</p>
+  </div>
+  <div class="body">
+    <div class="arch-layer" style="background:rgba(26,53,96,.6)">
+      <span class="lname">FRONTEND</span>
+      <div class="sep"></div>
+      <span class="ldetail">React + Tailwind &nbsp;|&nbsp; Buyer Dashboard · Supplier Portal · Vendor Health · Audit Logs</span>
+    </div>
+    <div class="arch-layer" style="background:rgba(26,53,96,.45)">
+      <span class="lname">FASTAPI BACKEND</span>
+      <div class="sep"></div>
+      <span class="ldetail">REST API + Server-Sent Events (SSE) for real-time agent activity streaming</span>
+    </div>
+    <div class="arch-layer highlight">
+      <span class="lname">LANGGRAPH DAG</span>
+      <div class="sep"></div>
+      <span class="ldetail">Orchestrator → Collector → Verifier → Risk Scorer → Audit Agent → Monitor &nbsp;(Conditional branching at every step)</span>
+    </div>
+    <div class="arch-layer" style="background:rgba(26,53,96,.45)">
+      <span class="lname">TOOLS &amp; INTEGRATIONS</span>
+      <div class="sep"></div>
+      <span class="ldetail">MCA21 · GSTN · CDSCO (Mock, prod-accurate) &nbsp;|&nbsp; OpenSanctions API (Real) &nbsp;|&nbsp; PyMuPDF OCR &nbsp;|&nbsp; ChromaDB</span>
+    </div>
+    <div class="arch-layer" style="background:rgba(26,53,96,.35)">
+      <span class="lname">DATA LAYER</span>
+      <div class="sep"></div>
+      <span class="ldetail">Supabase: PostgreSQL + Auth + Realtime WebSockets + Storage &nbsp;|&nbsp; Resend transactional emails</span>
+    </div>
+    <div class="arch-layer" style="background:rgba(9,20,40,.8);border-color:rgba(245,158,11,.25)">
+      <span class="lname" style="color:var(--teal2)">LLM: Groq · Llama 3.1 8B</span>
+      <div class="sep"></div>
+      <span class="ldetail" style="color:rgba(255,255,255,.6)">Free tier · &lt;$0.15/vendor · Temperature routing: high for reasoning, low for summaries</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 5 — AGENTS ═════════════════════════════════════ -->
+<div class="slide content-slide" id="s5">
+  <div class="slide-header">
+    <h2>Multi-Agent Pipeline</h2>
+    <p>6 specialized agents in a conditional LangGraph DAG — not a chain</p>
+  </div>
+  <div class="body" style="flex-direction:column;gap:14px">
+    <div class="agents-grid">
+      <div class="agent-card">
+        <div class="agent-head"><div class="agent-num">1</div><span class="agent-name">Orchestrator</span></div>
+        <p class="agent-role">Reads industry, generates dynamic compliance checklist, assigns tasks, detects stalls, escalates failures — no hardcoding required.</p>
+      </div>
+      <div class="agent-card">
+        <div class="agent-head"><div class="agent-num">2</div><span class="agent-name">Collector</span></div>
+        <p class="agent-role">Smart form generation, tracks submitted vs pending, auto-sends contextual reminders tailored to exactly what's missing per supplier.</p>
+      </div>
+      <div class="agent-card">
+        <div class="agent-head"><div class="agent-num">3</div><span class="agent-name">Verifier</span></div>
+        <p class="agent-role">OCR reads PDFs, checks expiry dates and cert numbers, cross-references MCA21, GSTN, CDSCO APIs, detects fraud signals.</p>
+      </div>
+      <div class="agent-card">
+        <div class="agent-head"><div class="agent-num">4</div><span class="agent-name">Risk Scorer</span></div>
+        <p class="agent-role">Sanction screening via OpenSanctions, risk scoring Low/Med/High, LLM writes human-readable risk rationale narrative.</p>
+      </div>
+      <div class="agent-card">
+        <div class="agent-head"><div class="agent-num">5</div><span class="agent-name">Audit Agent</span></div>
+        <p class="agent-role">Compiles all decisions with timestamps, generates regulator-ready PDF audit pack in compliant legal language.</p>
+      </div>
+      <div class="agent-card">
+        <div class="agent-head"><div class="agent-num" style="background:#064E3B">6</div><span class="agent-name">Monitor</span></div>
+        <p class="agent-role">Post-approval health surveillance: cert expiry, risk drift, SLA performance, continuous sanction screening. Permanent compliance.</p>
+      </div>
+    </div>
+    <div class="dag-banner">
+      <div class="edges"><b>Conditional DAG edges:</b> Each agent communicates through shared state — Fraud → HALT · Stall → Escalate · Missing docs → Retry</div>
+      <div class="edge-items">should_proceed_to_verification · should_proceed_after_verification · should_proceed_after_risk</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 6 — AUTONOMY (30%) ════════════════════════════ -->
+<div class="slide content-slide" id="s6">
+  <div class="slide-header">
+    <h2>Autonomy Depth — 30%</h2>
+    <p>17 out of 19 pipeline steps complete with zero human involvement</p>
+  </div>
+  <div class="body">
+    <div class="autonomy-left">
+      <div class="big-stat">
+        <span class="num" id="counter17">0</span>
+        <div class="sub">out of 19 steps<br>fully autonomous</div>
+      </div>
+      <div class="gates-box">
+        <h4>2 Human Gates</h4>
+        <p>Final approval click<br>Halt / fraud review</p>
+      </div>
+    </div>
+    <div class="autonomy-right">
+      <div class="rec-card"><h4>Stall Detection</h4><p>Orchestrator detects when Collector hasn't progressed. Retries with escalated reminders before flagging to human.</p></div>
+      <div class="rec-card"><h4>Fraud HALT</h4><p>Verifier flags suspicious docs → pipeline halts immediately. Human receives halt report. No silent failures.</p></div>
+      <div class="rec-card"><h4>API Failures</h4><p>Gov API errors → agents retry → log failure → pipeline continues with available data, gap flagged.</p></div>
+      <div class="rec-card"><h4>Ambiguous Input</h4><p>Risk Scorer can't determine High/Low → generates uncertainty flag with partial reasoning rather than guessing.</p></div>
+      <div class="scenario-banner">
+        <h4>Track 2 Scenario Coverage</h4>
+        <ul>
+          <li>✓ Employee Onboarding: accounts across 3 systems, buddy assignment, orientation scheduling</li>
+          <li>✓ Error Recovery: JIRA access error → retry → IT escalation with audit log</li>
+          <li>✓ SLA Breach: stuck approval → reroute to delegate → override logged</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 7 — MULTI-AGENT DESIGN (20%) ══════════════════ -->
+<div class="slide content-slide" id="s7">
+  <div class="slide-header">
+    <h2>Multi-Agent Design — 20%</h2>
+    <p>Clear orchestration pattern · structured handoffs · shared state</p>
+  </div>
+  <div class="body" style="flex-direction:column;gap:14px">
+    <div class="flow-bar">
+      <div class="flow-node"><div class="fn">Orchestrator</div><div class="ft">Entry · Brain</div></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node teal"><div class="fn">Collector</div><div class="ft">Intake</div></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node teal"><div class="fn">Verifier</div><div class="ft">Validate</div></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node teal"><div class="fn">Risk Scorer</div><div class="ft">Score</div></div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-node teal"><div class="fn">Audit Agent</div><div class="ft">Compile</div></div>
+      <span class="flow-arrow" style="color:var(--slateL)">⟲</span>
+      <div class="flow-node dark"><div class="fn">Monitor</div><div class="ft">Post-approval loop</div></div>
+    </div>
+    <div class="state-box">
+      <div>
+        <h4>NexusStateManager — Shared State</h4>
+        <p>Thread-safe single source of truth for all 6 agents. Agents read/write through manager — no direct coupling. State includes: checklist, doc status, risk score, audit log.</p>
+      </div>
+    </div>
+    <div class="design-grid">
+      <div class="design-card"><h4>Responsibilities Split</h4><p>Each agent has one clear job. Orchestrator never does document reading. Verifier never scores risk. Zero bleed.</p></div>
+      <div class="design-card"><h4>Structured Handoffs</h4><p>Agents communicate via shared state — not direct calls. Output of one becomes input of next automatically.</p></div>
+      <div class="design-card"><h4>Orchestration Pattern</h4><p>Orchestrator = conductor. Conditional edges determine routing. No agent decides its own successor.</p></div>
+      <div class="design-card"><h4>Isolation = Testability</h4><p>172 tests: each agent unit-tested independently. Integration tests cover the full DAG end-to-end.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 8 — TECHNICAL CREATIVITY (20%) ════════════════ -->
+<div class="slide content-slide" id="s8">
+  <div class="slide-header">
+    <h2>Technical Creativity — 20%</h2>
+    <p>Elegant architecture · cost efficiency · domain-specific reasoning</p>
+  </div>
+  <div class="body" style="position:relative;padding-bottom:44px">
+    <div class="tech-card">
+      <div class="tc-head amber">LLM Routing for Cost Efficiency</div>
+      <div class="tc-body">Heavy tasks (compliance analysis, fraud detection) use higher temperature. Light tasks (reminders, validation) use lower configs. Groq Llama 3.1 8B on free tier.<br><br>Estimated cost: <code>&lt;$0.15 per vendor</code> onboarded.</div>
+    </div>
+    <div class="tech-card">
+      <div class="tc-head teal">Conditional DAG vs. Linear Chain</div>
+      <div class="tc-body">LangGraph conditional edges enable granular routing: <code>should_proceed_to_verification</code> · <code>fraud_halt</code> branch.<br><br>Each branch handles a specific failure mode — not a generic catch-all.</div>
+    </div>
+    <div class="tech-card">
+      <div class="tc-head green">Prod-Accurate Mock APIs</div>
+      <div class="tc-body">MCA21 / GSTN / CDSCO return production-accurate response shapes — CIN format, GST structure, licence numbers.<br><br>Real API swap = <strong>zero agent code changes</strong>. Architecture is production-ready.</div>
+    </div>
+    <div class="tech-card">
+      <div class="tc-head navy">Supabase Realtime + ChromaDB</div>
+      <div class="tc-body">Postgres changes → WebSocket → React state. Dashboard cards flash on status changes. Audit logs slide in as agents write them — <strong>zero polling</strong>.<br><br>ChromaDB for semantic compliance document retrieval.</div>
+    </div>
+    <div class="stack-row">
+      <span class="stack-badge">LangGraph</span>
+      <span class="stack-badge">FastAPI</span>
+      <span class="stack-badge">Next.js</span>
+      <span class="stack-badge">Supabase</span>
+      <span class="stack-badge">ChromaDB</span>
+      <span class="stack-badge">Groq / Llama 3.1</span>
+      <span class="stack-badge">OpenSanctions</span>
+      <span class="stack-badge">PyMuPDF</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 9 — ENTERPRISE (20%) ══════════════════════════ -->
+<div class="slide content-slide" id="s9">
+  <div class="slide-header">
+    <h2>Enterprise Readiness — 20%</h2>
+    <p>172 tests · audit trails · compliance guardrails · graceful degradation</p>
+  </div>
+  <div class="body">
+    <div class="ent-left">
+      <div class="tests-box">
+        <div class="tnum" id="counter172">0</div>
+        <div class="tsub">passing tests</div>
+        <div class="tdetail">6 Agent · 5 Tool · 4 API · 3 Core · 2 Integration</div>
+      </div>
+    </div>
+    <div class="ent-right">
+      <div class="check-item"><div class="check-badge">✓</div><div><h4>Audit Trails</h4><p>Every agent decision timestamped and logged. Regulator-ready PDF audit pack generated by Audit Agent.</p></div></div>
+      <div class="check-item"><div class="check-badge">✓</div><div><h4>Compliance Guardrails</h4><p>Fraud signals trigger immediate HALT. Sanctions screened against OpenSanctions API in real-time.</p></div></div>
+      <div class="check-item"><div class="check-badge">✓</div><div><h4>Graceful Degradation</h4><p>API failures don't crash the pipeline. Agents continue with available data and flag gaps for human review.</p></div></div>
+      <div class="check-item"><div class="check-badge">✓</div><div><h4>Error Recovery</h4><p>Collector retries with escalated reminders. Orchestrator detects stalls. IT escalation path baked in.</p></div></div>
+      <div class="check-item"><div class="check-badge">✓</div><div><h4>Auth &amp; Realtime</h4><p>Supabase Auth for role separation (buyer vs supplier). Realtime WebSocket push — no polling.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 10 — IMPACT (10%) ════════════════════════════ -->
+<div class="slide content-slide" id="s10">
+  <div class="slide-header">
+    <h2>Impact Quantification — 10%</h2>
+    <p>Real math, stated assumptions, measurable before/after</p>
+  </div>
+  <div class="body" style="align-items:stretch;gap:24px">
+    <div class="impact-left">
+      <div class="chart-wrap" id="chartWrap">
+        <div class="bar-group">
+          <div class="bar-outer" style="height:180px"><div class="bar-fill" id="bar1" style="height:0%;background:var(--red)"><div class="bar-val">42</div></div></div>
+          <div class="bar-label">Without Nexus</div>
+        </div>
+        <div class="bar-group">
+          <div class="bar-outer" style="height:180px"><div class="bar-fill" id="bar2" style="height:0%;background:var(--green)"><div class="bar-val">2</div></div></div>
+          <div class="bar-label">With Nexus</div>
+        </div>
+      </div>
+      <div class="chart-title">Avg Turnaround (Days)</div>
+      <div class="assume-box" style="margin-top:12px">
+        <h4>Assumptions &amp; Model</h4>
+        <ul>
+          <li>• Regulated companies process 50–200 vendors/year · Legal staff cost: ~$100/hr</li>
+          <li>• Nexus: Groq Llama 3.1 8B (free). 1M token input/vendor ≈ $0.10–$0.15</li>
+          <li>• 7 hrs saved/vendor × $75 avg = <strong style="color:var(--amber)">$525 saved per vendor</strong></li>
+        </ul>
+      </div>
+    </div>
+    <div class="impact-right">
+      <div class="metric-row"><span class="before">5–8 wks</span><span class="arrow">→</span><span class="after">2 days</span><span class="desc">Turnaround time reduction</span></div>
+      <div class="metric-row"><span class="before">6–8 hrs</span><span class="arrow">→</span><span class="after">~0 hrs</span><span class="desc">Legal review time per vendor</span></div>
+      <div class="metric-row"><span class="before">4+ logins</span><span class="arrow">→</span><span class="after">1 click</span><span class="desc">Portal logins → unified API calls</span></div>
+      <div class="metric-row"><span class="before">~$800</span><span class="arrow">→</span><span class="after">&lt;$0.15</span><span class="desc">Est. cost per vendor (staff vs. LLM)</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SLIDE 11 — CLOSING ═══════════════════════════════════ -->
+<div class="slide" id="s11">
+  <div class="inner">
+    <h2>NEXUS — Evaluation Alignment</h2>
+    <div class="rubric-row"><div class="rubric-pct">30%</div><div class="rubric-body"><h4>Autonomy Depth</h4><p>17/19 steps autonomous · 4 error-recovery branches · conditional DAG routing</p></div></div>
+    <div class="rubric-row"><div class="rubric-pct">20%</div><div class="rubric-body"><h4>Multi-Agent Design</h4><p>6 specialized agents · shared state manager · clear orchestration pattern</p></div></div>
+    <div class="rubric-row"><div class="rubric-pct">20%</div><div class="rubric-body"><h4>Technical Creativity</h4><p>LangGraph DAG · cost routing · prod-accurate APIs · Supabase Realtime</p></div></div>
+    <div class="rubric-row"><div class="rubric-pct">20%</div><div class="rubric-body"><h4>Enterprise Readiness</h4><p>172 tests · audit PDF · fraud HALT · graceful degradation · Supabase Auth</p></div></div>
+    <div class="rubric-row"><div class="rubric-pct">10%</div><div class="rubric-body"><h4>Impact Quantification</h4><p>5–8 weeks → 2 days · $525 saved/vendor · stated assumptions · real metrics</p></div></div>
+    <div class="tagline-block">
+      <h3>NEXUS — Verify Once. Trust Always.</h3>
+      <p>ET AI Hackathon 2026 · Track 2: Autonomous Enterprise Workflows · github.com/kaniska-m/Nexus-vendor-onboarding-platform</p>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#deck -->
+
+<!-- NAV -->
+<div id="nav">
+  <button onclick="go(-1)">‹</button>
+  <div id="dots"></div>
+  <span id="slide-num">1 / 11</span>
+  <button onclick="go(1)">›</button>
+</div>
+<div id="hint">← → Space</div>
+
+<script>
+// ── PARTICLES ────────────────────────────────────────────────
+const canvas = document.getElementById('bg');
+const ctx = canvas.getContext('2d');
+let pts = [];
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight;initPts()}
+function initPts(){
+  pts=[];
+  const n=Math.floor((innerWidth*innerHeight)/22000);
+  for(let i=0;i<n;i++) pts.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.5+.5})
+}
+function drawPts(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  pts.forEach(p=>{
+    p.x+=p.vx; p.y+=p.vy;
+    if(p.x<0)p.x=canvas.width; if(p.x>canvas.width)p.x=0;
+    if(p.y<0)p.y=canvas.height; if(p.y>canvas.height)p.y=0;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle='rgba(13,148,136,0.25)';ctx.fill();
+  });
+  pts.forEach((a,i)=>{for(let j=i+1;j<pts.length;j++){const b=pts[j];const d=Math.hypot(a.x-b.x,a.y-b.y);if(d<120){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle=`rgba(13,148,136,${.08*(1-d/120)})`;ctx.lineWidth=.5;ctx.stroke()}}})
+  requestAnimationFrame(drawPts)
+}
+window.addEventListener('resize',resize);
+resize(); drawPts();
+
+// ── SLIDES ───────────────────────────────────────────────────
+const slides = document.querySelectorAll('.slide');
+const dots = document.getElementById('dots');
+const numEl = document.getElementById('slide-num');
+const bar = document.getElementById('progress');
+let cur = 0, animating = false;
+
+slides.forEach((_,i)=>{
+  const d=document.createElement('div');
+  d.className='dot'+(i===0?' on':'');
+  d.onclick=()=>goTo(i);
+  dots.appendChild(d);
+});
+
+function updateUI(){
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('on',i===cur));
+  numEl.textContent=`${cur+1} / ${slides.length}`;
+  bar.style.width=`${((cur+1)/slides.length)*100}%`;
+}
+
+function goTo(n){
+  if(animating||n===cur||n<0||n>=slides.length) return;
+  animating=true;
+  const prev=slides[cur];
+  prev.classList.add('exit');
+  prev.classList.remove('active');
+  setTimeout(()=>prev.classList.remove('exit'),550);
+  cur=n;
+  slides[cur].classList.add('active');
+  updateUI();
+  onSlideEnter(cur);
+  setTimeout(()=>{animating=false},600);
+}
+function go(d){goTo(cur+d)}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' ') go(1);
+  if(e.key==='ArrowLeft') go(-1);
+});
+
+// ── COUNTER ANIMATION ─────────────────────────────────────
+function animCount(el,target,dur){
+  let start=null;
+  function step(ts){
+    if(!start) start=ts;
+    const p=Math.min((ts-start)/dur,1);
+    const ease=1-Math.pow(1-p,4);
+    el.textContent=Math.round(ease*target);
+    if(p<1) requestAnimationFrame(step);
+    else el.textContent=target;
+  }
+  requestAnimationFrame(step);
+}
+
+// ── BAR CHART ANIMATION ───────────────────────────────────
+function animBars(){
+  setTimeout(()=>{
+    document.getElementById('bar1').style.height='100%';
+    document.getElementById('bar2').style.height='4.76%'; // 2/42
+  },200);
+}
+
+// ── SLIDE ENTER HOOKS ─────────────────────────────────────
+function onSlideEnter(n){
+  if(n===5){ // slide 6 (0-indexed)
+    const el=document.getElementById('counter17');
+    if(el.textContent==='0') animCount(el,17,900);
+  }
+  if(n===8){ // slide 9
+    const el=document.getElementById('counter172');
+    if(el.textContent==='0') animCount(el,172,1100);
+  }
+  if(n===9){ // slide 10
+    animBars();
+  }
+}
+
+// ── INIT ─────────────────────────────────────────────────
+slides[0].classList.add('active');
+updateUI();
+</script>
+</body>
+</html>
