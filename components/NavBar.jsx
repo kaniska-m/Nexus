@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, ShieldAlert, Activity, Plus, LogOut, Wifi, WifiOff } from 'lucide-react';
+import { LayoutDashboard, ShieldAlert, Activity, Plus, LogOut } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useRealtime } from '@/components/RealtimeProvider';
+import CommandPalette from '@/components/CommandPalette';
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -113,6 +114,7 @@ export default function NavBar() {
 
   return (
     <>
+      <CommandPalette />
       <div className="nexus-accent-bar" />
       <nav className="bg-white/80 backdrop-blur-xl border-b border-slate-200/60 h-16 sticky top-0 z-50 shadow-sm">
         <div className="max-w-[1400px] mx-auto px-6 h-full flex items-center justify-between">
