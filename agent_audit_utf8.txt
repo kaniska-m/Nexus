@@ -1,0 +1,197 @@
+﻿py : C:\ET_2\Nexus\tes
+t_agents.py:484: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+At line:1 char:77
++ ... ivate.ps1"; py 
+-3 test_agents.py > ag
+ent_audit_output.txt 
+2>&1; echo  ...
++                 ~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (C:\ET_2\Ne   
+ xus\t...(datetime    
+.UTC).:String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+  print(f"  Run at: {d
+atetime.utcnow().isofo
+rmat()} UTC")
+C:\ET_2\Nexus\test_age
+nts.py:76: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  t0 = 
+datetime.utcnow()
+Cannot append audit 
+log ΓÇö vendor 
+techflow-test-001 not 
+found
+C:\ET_2\Nexus\test_age
+nts.py:78: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  elapsed = 
+(datetime.utcnow() - 
+t0).total_seconds()
+C:\ET_2\Nexus\test_age
+nts.py:141: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  t0 = 
+datetime.utcnow()
+C:\ET_2\Nexus\test_age
+nts.py:143: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  elapsed = 
+(datetime.utcnow() - 
+t0).total_seconds()
+C:\ET_2\Nexus\test_age
+nts.py:238: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  t0 = 
+datetime.utcnow()
+C:\ET_2\Nexus\test_age
+nts.py:240: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  elapsed = 
+(datetime.utcnow() - 
+t0).total_seconds()
+C:\ET_2\Nexus\test_age
+nts.py:255: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  t0 = 
+datetime.utcnow()
+C:\ET_2\Nexus\test_age
+nts.py:257: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  elapsed2 = 
+(datetime.utcnow() - 
+t0).total_seconds()
+C:\ET_2\Nexus\test_age
+nts.py:283: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  t0 = 
+datetime.utcnow()
+C:\ET_2\Nexus\test_age
+nts.py:285: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  elapsed = 
+(datetime.utcnow() - 
+t0).total_seconds()
+C:\ET_2\Nexus\test_age
+nts.py:306: 
+DeprecationWarning: da
+tetime.datetime.utcnow
+() is deprecated and 
+scheduled for removal 
+in a future version. 
+Use timezone-aware 
+objects to represent 
+datetimes in UTC: date
+time.datetime.now(date
+time.UTC).
+  t0 = 
+datetime.utcnow()

@@ -68,3 +68,51 @@ def seed_fraud_patterns():
             logger.info("Chroma collection 'nexus_fraud_patterns' already exists. Skipping seed.")
     except Exception as e:
         logger.error(f"Error seeding Chroma fraud patterns: {e}")
+
+
+def query_similar_fraud_patterns(query_text: str, n_results: int = 3) -> list[dict]:
+    """
+    Query ChromaDB for similar known fraud patterns using cosine similarity.
+
+    Args:
+        query_text: A description of the detected issue (e.g., 'GST number not found in registry')
+        n_results: Number of similar patterns to return
+
+    Returns:
+        List of matching fraud pattern dicts with id, text, metadata, and distance score
+    """
+    client = get_chroma_client()
+    if not client:
+        return []
+
+    try:
+        collection = client.get_collection("nexus_fraud_patterns")
+        results = collection.query(
+            query_texts=[query_text],
+            n_results=min(n_results, len(FRAUD_PATTERNS)),
+            include=["documents", "metadatas", "distances"],
+        )
+
+        patterns = []
+        documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        ids = results.get("ids", [[]])[0]
+
+        for i, doc in enumerate(documents):
+            similarity = round(1 - distances[i], 3)  # cosine distance → similarity
+            if similarity > 0.3:  # only include meaningful matches
+                patterns.append({
+                    "pattern_id": ids[i],
+                    "description": doc,
+                    "severity": metadatas[i].get("severity", "medium"),
+                    "fraud_type": metadatas[i].get("type", "unknown"),
+                    "similarity_score": similarity,
+                })
+
+        logger.info(f"ChromaDB RAG: found {len(patterns)} similar fraud patterns for query")
+        return patterns
+
+    except Exception as e:
+        logger.error(f"ChromaDB query failed: {e}")
+        return []
