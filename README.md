@@ -29,7 +29,6 @@
 - [Getting Started](#getting-started)
 - [API Reference](#api-reference)
 - [Testing](#testing)
-- [Hackathon Evaluation Alignment](#hackathon-evaluation-alignment)
 - [Design Decisions](#design-decisions)
 
 ---
