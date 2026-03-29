@@ -2,15 +2,27 @@
 // GET /api/vendors — List vendors with related counts
 // ============================================================================
 
+export const dynamic = 'force-dynamic'; // Disable Next.js route caching
+
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false,
+  },
+  global: {
+    fetch: (url, options = {}) => {
+      return fetch(url, { ...options, cache: 'no-store' });
+    },
+  },
+});
 
 export async function GET() {
+  console.log("==== NEXTJS API ROUTE EXECUTING ====");
   try {
     // Fetch all vendors
     const { data: vendors, error } = await supabase
@@ -61,7 +73,7 @@ export async function GET() {
       exceptions: exceptionsByVendor[v.id] || [],
     }));
 
-    return NextResponse.json({ data: enriched });
+    return NextResponse.json({ data: { vendors: enriched, total: enriched.length } });
   } catch (err) {
     console.error('[Vendors API]', err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

@@ -1,12 +1,14 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
   LayoutDashboard, Users, Plus, Loader2, ChevronRight,
   Building2, FileCheck, AlertTriangle, TrendingUp, Zap, Search, Clock, Bot, X, ShieldCheck,
-  Copy, CheckCircle, BarChart3, Play, Sparkles
+  Copy, CheckCircle, BarChart3, Play, Sparkles, RefreshCw
 } from 'lucide-react';
 import { onboardVendor, listVendors, monitorVendor } from '@/lib/api';
 import { useRealtime } from '@/components/RealtimeProvider';
@@ -40,6 +42,7 @@ export default function DashboardPage() {
   const [drawerVendor, setDrawerVendor] = useState(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [pipelineLoading, setPipelineLoading] = useState(false);
   const [pipelineVendorId, setPipelineVendorId] = useState(null);
   const [sseEvents, setSseEvents] = useState([]);
@@ -86,6 +89,22 @@ export default function DashboardPage() {
     }
     init();
   }, []);
+
+  // Manual refresh from Supabase
+  const refreshVendors = async () => {
+    setRefreshing(true);
+    try {
+      const res = await listVendors();
+      const data = res?.data || res;
+      const vendorList = Array.isArray(data) ? data : (data?.vendors || []);
+      setVendors(vendorList);
+      if (vendorList.length > 0) setSelectedVendor(prev => prev || vendorList[0]);
+    } catch (err) {
+      console.error('Refresh error:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Supabase Realtime: subscribe to vendor changes
   useEffect(() => {
@@ -318,6 +337,14 @@ export default function DashboardPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              <button
+                onClick={refreshVendors}
+                disabled={refreshing}
+                className="p-2 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-50"
+                title="Refresh vendor list from database"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
               <span className="text-xs text-slate-400 font-mono whitespace-nowrap">{filteredVendors.length} results</span>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-2 relative">

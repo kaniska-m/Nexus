@@ -361,9 +361,9 @@ async def get_vendor_status(vendor_id: str):
     )
 
 
-# ── List All Vendors ──────────────────────────────────────────────────────
+# ── List All Vendors (Legacy / Python Memory) ──────────────────────────────
 
-@app.get("/api/vendors", response_model=NexusAPIResponse)
+@app.get("/api/python_memory/vendors", response_model=NexusAPIResponse)
 async def list_vendors():
     """List all vendor workflows (for buyer dashboard)."""
     from backend.utils.state_manager import state_manager
