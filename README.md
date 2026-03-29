@@ -35,11 +35,11 @@ graph TD
     Start([Vendor Onboarded]) --> Orchestrator
 
     subgraph LangGraph Pipeline
-        Orchestrator(Orchestrator Agent)<br/>Generates dynamic checklist ::: agent
-        Collector(Collector Agent)<br/>Tracks doc uploads ::: agent
-        Verifier(Verifier Agent)<br/>Validates PDFs & checks APIs ::: agent
-        RiskScorer(Risk Scorer Agent)<br/>Calculates risk & rationale ::: agent
-        AuditAgent(Audit Agent)<br/>Compiles immutable log ::: agent
+        Orchestrator("Orchestrator Agent<br/>Generates dynamic checklist") ::: agent
+        Collector("Collector Agent<br/>Tracks doc uploads") ::: agent
+        Verifier("Verifier Agent<br/>Validates PDFs & checks APIs") ::: agent
+        RiskScorer("Risk Scorer Agent<br/>Calculates risk & rationale") ::: agent
+        AuditAgent("Audit Agent<br/>Compiles immutable log") ::: agent
     end
 
     Orchestrator --> Collector
